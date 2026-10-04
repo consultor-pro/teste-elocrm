@@ -570,6 +570,18 @@ body.arrastando-info, body.arrastando-info * { cursor: grabbing !important; user
 [data-theme="dark"] .tc-btn:hover { background: #161b22; }
 [data-theme="dark"] .tc-btn.forte { border-color: #8b949e; color: #e6edf3; }
 [data-theme="dark"] .tc-avatar { background: #30363d; color: #c9d1d9; }
+/* --- Modo hierarquia: lojas --- */
+.hier-faixa.loja { border-color: var(--line); background: #fff; padding: 8px 16px; }
+.hier-linha-equipe { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: 12.5px; color: #334155; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; white-space: normal; }
+.hier-lojas { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px; }
+.hier-lojas-titulo { margin-bottom: 8px; white-space: normal; }
+.hier-lojas-lista { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.hier-loja-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 3px 9px; }
+.hier-loja-chip a { color: #64748b; font-size: 11px; cursor: pointer; }
+.hier-loja-chip a:hover { color: #0f172a; text-decoration: underline; }
+[data-theme="dark"] .hier-linha-equipe, [data-theme="dark"] .hier-loja-chip { background: #161b22; border-color: #30363d; color: #c9d1d9; }
+[data-theme="dark"] .hier-lojas { border-color: #30363d; }
+[data-theme="dark"] .hier-faixa.loja { background: #0d1117; }
 /* --- Modo hierarquia: aceite de vendas --- */
 .hier-cont { background: var(--red); color: #fff; border-radius: 99px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; margin-left: 6px; }
 .hier-faixa { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 11px 16px; border-radius: 12px; margin-bottom: 12px; font-size: 13.5px; border: 1px solid var(--line); background: #fff; }
@@ -1417,6 +1429,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
             <th>Consultor</th>
             <th>Cargo</th>
             <th>Líder</th>
+            <th>Loja</th>
             <th id="semaforoCotasHeader">Vendas</th>
             <th id="semaforoVolumeHeader" style="text-align:right">Volume (R$)</th>
             <th>Status</th>
@@ -2030,6 +2043,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
     <div id="addUserBtnContainer"></div>
   </div>
   <div style="overflow-x:auto">
+    <div id="hierLojasCard"></div>
     <table class="tabela-compacta">
       <thead>
         <tr>
@@ -2038,6 +2052,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
           <th>WhatsApp</th>
           <th>Cargo</th>
           <th>Líder direto</th>
+          <th>Loja</th>
           <th>Liderados</th>
           <th>Enxerga</th>
           <th>Ações</th>
@@ -3431,7 +3446,11 @@ function equipeVisivel(){
 }
 function equipeVisivelAtiva(){ return equipeVisivel().filter(u => u.ativo !== false); }
 function hierTenhoEquipe(){ return !!currentUser && (usersList || []).some(u => u.superiorId === currentUser.id); }
-function hierVendasVisiveis(){ return MODO_HIERARQUIA ? (db.sales || []).filter(canUserAccessSale) : (db.sales || []); }
+function hierVendasVisiveis(){
+  if (!MODO_HIERARQUIA) return db.sales || [];
+  const loja = hierFiltroLoja();
+  return (db.sales || []).filter(s => canUserAccessSale(s) && (loja === 'all' || hierLojaDaVenda(s) === loja));
+}
 function hierLeadsVisiveis(){ return MODO_HIERARQUIA ? (db.leads || []).filter(canUserAccessLead) : (db.leads || []); }
 function notificacoesVisiveis(){
   if (!MODO_HIERARQUIA || !currentUser) return notifications || [];
@@ -3451,7 +3470,8 @@ function hierCarimbar(s, porId, legado){
     por: porId || null,
     em: new Date().toISOString(),
     digital: hierDigital(s),
-    nIdx: (s.indicesAplicados || []).length
+    nIdx: (s.indicesAplicados || []).length,
+    loja: vend ? (vend.loja || '') : ''
   };
   if (legado) s.aprov.legado = true;
 }
@@ -3616,6 +3636,16 @@ function hierAtualizarAvisos(){
     topo.insertAdjacentElement('afterend', faixa);
   }
   const partes = [];
+  const lojasFiltro = hierLojasVisiveis();
+  if (lojasFiltro.length > 1) {
+    const lojaAtual = hierFiltroLoja();
+    partes.push(`<div class="hier-faixa loja"><span>🏬 <b>Ver loja:</b>
+      <select id="hierLojaFiltro" onchange="hierMudarLoja(this.value)" style="max-width:230px;padding:4px 8px;font-size:13px;margin-left:6px">
+        <option value="all">Todas as minhas lojas (${lojasFiltro.length})</option>
+        ${lojasFiltro.map(l => `<option value="${l.id}" ${l.id === lojaAtual ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
+      </select></span>
+      <small class="muted">Vale para o Semáforo, o Dashboard, o Mapa de Cotas, Consultores & Vendas e a Equipe.</small></div>`);
+  }
   if (paraMim) partes.push(`<div class="hier-faixa conferir"><span>📨 <b>${paraMim} venda(s)</b> da sua equipe aguardando o seu aceite.</span><button class="btn primary" onclick="abrirAceiteVendas()">Conferir</button></div>`);
   if (recusadas) partes.push(`<div class="hier-faixa recusada"><span>❌ <b>${recusadas} venda(s) sua(s)</b> foram recusadas. Veja o motivo, corrija e reenvie.</span><button class="btn" onclick="abrirAceiteVendas()">Ver</button></div>`);
   if (aguardando) {
@@ -3782,6 +3812,90 @@ function hierReativarUsuario(userId){
   u.ativo = true; save(); renderAll(); showToast(`${u.nome} foi reativado(a).`);
 }
 
+// ---------- LOJAS ----------
+function hierLojas(){ if (!Array.isArray(db.lojas)) db.lojas = []; return db.lojas; }
+function hierLojaNome(id){ const l = hierLojas().find(x => x.id === id); return l ? l.nome : ''; }
+// Só quem está no topo da árvore cria, renomeia e exclui lojas
+function hierPodeGerirLojas(){ return !!currentUser && !hierLiderAtual(currentUser.id); }
+// Lojas onde existe alguém que eu enxergo (eu ou quem está abaixo de mim)
+function hierLojasVisiveis(){
+  const ids = new Set(equipeVisivel().map(u => u.loja).filter(Boolean));
+  return hierLojas().filter(l => ids.has(l.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+}
+// Filtro "Ver loja" escolhido na faixa do topo ('all' = todas as lojas que eu enxergo)
+function hierFiltroLoja(){
+  const v = window.__hierLoja || 'all';
+  if (v === 'all' || !currentUser) return 'all';
+  return hierLojasVisiveis().some(l => l.id === v) ? v : 'all';
+}
+function hierNaLoja(u){ const f = hierFiltroLoja(); return f === 'all' || (u && u.loja === f); }
+function equipeNaTela(){ const f = hierFiltroLoja(); return equipeVisivelAtiva().filter(u => f === 'all' || u.loja === f); }
+// Loja da venda: a da ÉPOCA (gravada no aceite); se a pessoa mudar de loja, as vendas antigas ficam na loja antiga
+function hierLojaDaVenda(s){
+  if (s.aprov && typeof s.aprov.loja === 'string') return s.aprov.loja;
+  const u = hierUsuarioPorNome(s.responsavel); return u ? (u.loja || '') : '';
+}
+function hierMudarLoja(v){ window.__hierLoja = v; renderAll(); }
+function hierOpcoesLoja(atual){
+  return '<option value="">Sem loja definida</option>' + hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+    .map(l => `<option value="${l.id}" ${l.id === atual ? 'selected' : ''}>${esc(l.nome)}</option>`).join('');
+}
+function hierRenderLojas(){
+  const el = document.getElementById('hierLojasCard');
+  if (!el || !currentUser) return;
+  const acima = hierCadeiaAcima(currentUser.id).map(id => (hierUsuario(id) || {}).nome).filter(Boolean).reverse();
+  const abaixo = equipeVisivel().length - 1;
+  const lojasVis = hierLojasVisiveis();
+  let html = `<div class="hier-linha-equipe"><span><b>Acima de você:</b> ${acima.length ? acima.map(esc).join(' › ') : 'ninguém (você está no topo)'}</span><span><b>Abaixo de você:</b> ${abaixo} pessoa(s)${lojasVis.length ? ' · ' + lojasVis.map(l => esc(l.nome)).join(', ') : ''}</span></div>`;
+  if (hierPodeGerirLojas()) {
+    const qtd = id => (usersList || []).filter(u => u.loja === id && u.ativo !== false).length;
+    html += `<div class="hier-lojas">
+      <div class="hier-lojas-titulo"><b>Lojas</b> <span class="tc-sub">Só você, que está no topo, cria e altera as lojas. Cada líder coloca os liderados na loja certa em "Editar".</span></div>
+      <div class="hier-lojas-lista">
+        ${hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(l => `<span class="hier-loja-chip"><b>${esc(l.nome)}</b> <span class="tc-sub">${qtd(l.id)} pessoa(s)</span>
+          <a onclick="hierAbrirLoja('${l.id}')">renomear</a><a onclick="hierExcluirLoja('${l.id}')">excluir</a></span>`).join('') || '<span class="tc-sub">Nenhuma loja cadastrada ainda.</span>'}
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="tc-btn forte" onclick="hierAbrirLoja()">+ Nova loja</button>
+        <span class="tc-sub" style="margin-left:8px">Minha loja:</span>
+        <select style="max-width:220px;padding:4px 8px;font-size:12.5px" onchange="hierDefinirMinhaLoja(this.value)">${hierOpcoesLoja(currentUser.loja)}</select>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+function hierAbrirLoja(id){
+  if (!hierPodeGerirLojas()) return;
+  const l = id ? hierLojas().find(x => x.id === id) : null;
+  openModal(`
+    <div class="between"><h2 style="margin:0">${l ? 'Renomear loja' : 'Nova loja'}</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <div class="field" style="margin-top:12px"><label>Nome da loja</label><input id="hierLojaNomeInput" value="${esc(l ? l.nome : '')}" placeholder="Ex: Loja Ourinhos" onkeydown="if(event.key==='Enter') hierSalvarLoja('${l ? l.id : ''}')"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn primary" onclick="hierSalvarLoja('${l ? l.id : ''}')">Salvar</button></div>`);
+  setTimeout(() => document.getElementById('hierLojaNomeInput')?.focus(), 50);
+}
+function hierSalvarLoja(id){
+  if (!hierPodeGerirLojas()) return;
+  const nome = (document.getElementById('hierLojaNomeInput')?.value || '').trim();
+  if (!nome) return alert('Informe o nome da loja.');
+  if (hierLojas().some(x => x.id !== id && (x.nome || '').toLowerCase() === nome.toLowerCase())) return alert('Já existe uma loja com esse nome.');
+  if (id) { const l = hierLojas().find(x => x.id === id); if (l) l.nome = nome; }
+  else hierLojas().push({ id: 'loja_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), nome });
+  save(); closeModal(); showToast('Loja salva.');
+}
+function hierExcluirLoja(id){
+  if (!hierPodeGerirLojas()) return;
+  const usando = (usersList || []).filter(u => u.loja === id).length;
+  if (usando) return alert(`Esta loja ainda tem ${usando} pessoa(s). Mude essas pessoas de loja antes de excluir.`);
+  if (!confirm('Excluir esta loja? As vendas antigas feitas nela continuam no histórico.')) return;
+  db.lojas = hierLojas().filter(l => l.id !== id);
+  save(); showToast('Loja excluída.');
+}
+function hierDefinirMinhaLoja(v){
+  if (!hierPodeGerirLojas()) return;
+  currentUser.loja = v || '';
+  save(); showToast('Sua loja foi atualizada.');
+}
+
 // ---------- editar os dados de quem está abaixo de mim ----------
 function hierEditarMembro(userId){
   const u = hierUsuario(userId);
@@ -3793,6 +3907,8 @@ function hierEditarMembro(userId){
     <div class="field"><label>Usuário ou e-mail de acesso</label><input id="hmEmail" value="${esc(u.email || '')}"></div>
     <div class="field"><label>WhatsApp com DDD</label><input id="hmTel" value="${esc(u.tel || '')}"></div>
     <div class="field"><label>Data de nascimento (aparece em Aniversariantes)</label><input type="date" id="hmNasc" value="${esc(u.nasc || '')}"></div>
+    <div class="field"><label>Loja onde trabalha</label><select id="hmLoja">${hierOpcoesLoja(u.loja)}</select>
+      <small class="muted">As vendas novas dessa pessoa contam para esta loja. As antigas ficam na loja da época.</small></div>
     <div class="row" style="justify-content:flex-end"><button class="btn primary" onclick="hierSalvarMembro('${u.id}')">Salvar</button></div>`);
 }
 function hierSalvarMembro(userId){
@@ -3808,6 +3924,7 @@ function hierSalvarMembro(userId){
   if (usersList.some(x => x.id !== u.id && (x.email || '').toLowerCase() === email)) return alert('Esse usuário/e-mail já está em uso por outra pessoa.');
   const nomeAntigo = u.nome;
   u.nome = nome; u.email = email; u.tel = tel; u.nasc = nasc;
+  u.loja = document.getElementById('hmLoja')?.value || '';
   if (nomeAntigo !== nome && typeof cascatearRenomeacaoResponsavel === 'function') cascatearRenomeacaoResponsavel(nomeAntigo, nome);
   save(); closeModal(); renderAll();
   showToast('Cadastro atualizado.');
@@ -5658,10 +5775,10 @@ function renderMapaCotas(){
   if (selConsultorMapa && Array.isArray(usersList)) {
     const atualMapa = selConsultorMapa.value;
     const optsMapa = '<option value="all">Todos os Consultores</option>' +
-      equipeVisivelAtiva().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
+      equipeNaTela().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
     if (selConsultorMapa.innerHTML !== optsMapa) {
       selConsultorMapa.innerHTML = optsMapa;
-      if (atualMapa && equipeVisivelAtiva().some(u => u.nome === atualMapa)) selConsultorMapa.value = atualMapa;
+      if (atualMapa && equipeNaTela().some(u => u.nome === atualMapa)) selConsultorMapa.value = atualMapa;
     }
   }
   const filtroConsultorMapa = selConsultorMapa?.value || 'all';
@@ -7168,7 +7285,8 @@ function renderUsers(){
   if(!userTableEl) return;
 
   if (!currentUser) return;
-  userTableEl.innerHTML = equipeVisivel().slice().sort((a, b) => hierNivel(a.cargo) - hierNivel(b.cargo) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(u => {
+  hierRenderLojas();
+  userTableEl.innerHTML = equipeVisivel().filter(hierNaLoja).sort((a, b) => hierNivel(a.cargo) - hierNivel(b.cargo) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(u => {
     const superior = getSuperiorUser(u.superiorId);
     const subordinates = getDirectSubordinates(u.id);
     const abaixoDeMim = hierEstaAcima(currentUser.id, u.id);
@@ -7192,6 +7310,7 @@ function renderUsers(){
         <td>${esc(u.tel || '-')}</td>
         <td>${esc(u.cargo || 'Consultor')}</td>
         <td>${superior ? esc(superior.nome) : '<span class="tc-sub">Topo</span>'}</td>
+        <td>${esc(hierLojaNome(u.loja)) || '<span class="tc-sub">-</span>'}</td>
         <td>${subordinates.length || '<span class="tc-sub">-</span>'}</td>
         <td>${subordinates.length ? 'A equipe' : 'Só o próprio'}</td>
         <td>${acoes}</td>
@@ -7498,6 +7617,7 @@ function openNewUserModal(){
       </select>
       <small class="muted">A pessoa entra na equipe de quem você escolher aqui (você ou alguém abaixo de você).</small>
     </div>
+    <div class="field"><label>🏬 Loja onde vai trabalhar</label><select id="nuLoja">${hierOpcoesLoja(currentUser.loja)}</select></div>
     <button class="btn primary" id="btnSaveUserModal" onclick="saveNewUser()">Cadastrar no CRM</button>
   `);
 }
@@ -7529,6 +7649,7 @@ function saveNewUser(){
   usersList.push({
     id: 'u_' + Date.now(),
     authId: null, nome, email, pass, cargo, superiorId, nasc,
+    loja: document.getElementById('nuLoja')?.value || '',
     tel: tel.replace(/\D/g, ''),
     avatar: '',
     canManageMembers: isGest,
@@ -10090,17 +10211,17 @@ function renderDashboard(){
   if (selConsultor && Array.isArray(usersList)) {
     const atual = selConsultor.value;
     const opts = '<option value="all">Todos os Consultores</option>' +
-      equipeVisivelAtiva().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
+      equipeNaTela().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
     if (selConsultor.innerHTML !== opts) {
       selConsultor.innerHTML = opts;
-      if (atual && equipeVisivelAtiva().some(u => u.nome === atual)) selConsultor.value = atual;
+      if (atual && equipeNaTela().some(u => u.nome === atual)) selConsultor.value = atual;
     }
   }
   const filtroConsultor = selConsultor?.value || 'all';
 
   let baseLeads = canSeeGeneral ? db.leads : db.leads.filter(canUserAccessLead);
   let baseMeetings = canSeeGeneral ? db.meetings : db.meetings.filter(canUserAccessMeeting);
-  let baseSales = canSeeGeneral ? db.sales : db.sales.filter(canUserAccessSale);
+  let baseSales = MODO_HIERARQUIA ? hierVendasVisiveis() : (canSeeGeneral ? db.sales : db.sales.filter(canUserAccessSale));
 
   if (filtroConsultor !== 'all') {
     baseLeads = baseLeads.filter(l => l.responsavel === filtroConsultor);
@@ -10160,7 +10281,7 @@ function renderDashboard(){
 
   if(canSeeGeneral || isLeader){
     let tc = 0, tm = 0, tvq = 0, tvv = 0;
-    let targetUsersList = canSeeGeneral ? usersList : usersList.filter(u => subIds.includes(u.id));
+    let targetUsersList = canSeeGeneral ? usersList : usersList.filter(u => subIds.includes(u.id) && hierNaLoja(u));
     if (filtroConsultor !== 'all') targetUsersList = targetUsersList.filter(u => u.nome === filtroConsultor);
 
     const rows = targetUsersList.map(u => {
@@ -10236,7 +10357,7 @@ function renderDashboard(){
   const rankingCard = document.getElementById('cardRankingConsultores');
   if(rankingCard){
     if(canSeeGeneral || isLeader){
-      let rankingUsersList = canSeeGeneral ? usersList : usersList.filter(u => subIds.includes(u.id) || u.nome === currentUser?.nome);
+      let rankingUsersList = canSeeGeneral ? usersList : usersList.filter(u => (subIds.includes(u.id) || u.nome === currentUser?.nome) && hierNaLoja(u));
       if (filtroConsultor !== 'all') rankingUsersList = rankingUsersList.filter(u => u.nome === filtroConsultor);
       const ranking = rankingUsersList.map(u => {
         const uSales = filteredSales.filter(s => s.responsavel === u.nome && !s.cancelada);
@@ -12880,10 +13001,11 @@ function injetarAbaConsultores() {
   const sel = document.getElementById('vcConsultorSelect');
   if (sel && Array.isArray(usersList)) {
     const atual = sel.value;
-    const opts = equipeVisivelAtiva().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
+    const opts = equipeNaTela().map(u => `<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
     if (sel.innerHTML !== opts) {
       sel.innerHTML = opts;
-      const manter = atual && equipeVisivelAtiva().some(u => u.nome === atual) ? atual : (currentUser?.nome || (usersList[0] && usersList[0].nome));
+      const noFiltro = equipeNaTela();
+      const manter = atual && noFiltro.some(u => u.nome === atual) ? atual : (noFiltro.some(u => u.id === currentUser?.id) ? currentUser.nome : (noFiltro[0] && noFiltro[0].nome));
       if (manter) sel.value = manter;
     }
   }
@@ -14387,7 +14509,7 @@ renderSemaforo = function() {
   }
 
   const mapaConsultores = {};
-  equipeVisivelAtiva().forEach(u => { mapaConsultores[u.nome] = { count: 0, vol: 0 }; });
+  equipeNaTela().forEach(u => { mapaConsultores[u.nome] = { count: 0, vol: 0 }; });
 
   // Só soma vendas de quem ainda é membro ativo (existe em usersList). Antes,
   // uma venda de um consultor já excluído (mas mantida no histórico) recriava
@@ -14447,6 +14569,7 @@ renderSemaforo = function() {
       <td><span class="tc-ponto ${item.semaforoClass}"></span><b>${esc(item.nome)}</b></td>
       <td>${esc(cargoTxt)}</td>
       <td>${item.superiorUser ? esc(item.superiorUser.nome) : '<span class="tc-sub">Topo</span>'}</td>
+      <td>${esc(hierLojaNome(item.userObj?.loja)) || '<span class="tc-sub">-</span>'}</td>
       <td>${item.count}</td>
       <td class="tc-num">${item.vol.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
       <td>${esc(item.statusText.replace(/^\S+\s/, ''))}</td>
@@ -14454,7 +14577,7 @@ renderSemaforo = function() {
     </tr>
   `;
   }).join('') || (listaRanking.length > 0
-    ? `<tr><td colspan="8"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
+    ? `<tr><td colspan="9"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
     : `<tr><td colspan="8"><div class="empty-state"><span class="emoji">👔</span>Nenhum consultor cadastrado ainda.<br><button class="btn primary" style="margin-top:10px" onclick="show('usuarios', null)">+ Cadastrar Consultor</button></div></td></tr>`);
 };
 
