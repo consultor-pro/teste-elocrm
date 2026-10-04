@@ -2050,6 +2050,10 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
   </div>
   <div style="overflow-x:auto">
     <div id="hierLojasCard"></div>
+    <div class="row" style="gap:10px;align-items:center;margin-bottom:8px">
+      <input id="hierBuscaEquipe" placeholder="Buscar pessoa pelo nome..." oninput="renderUsers()" style="max-width:280px;padding:6px 10px;font-size:13px;margin:0">
+      <span id="hierContaEquipe" class="tc-sub"></span>
+    </div>
     <table class="tabela-compacta">
       <thead>
         <tr>
@@ -3440,8 +3444,19 @@ function hierNivel(cargo){
   return i < 0 ? HIER_NIVEL_CONSULTOR : Math.min(i, HIER_NIVEL_CONSULTOR);
 }
 function hierPodeLiderar(cargo){ return hierNivel(cargo) < HIER_NIVEL_CONSULTOR; }
-function hierUsuario(id){ return (usersList || []).find(u => u.id === id) || null; }
-function hierUsuarioPorNome(nome){ return (usersList || []).find(u => u.nome === nome) || null; }
+// Índice das pessoas por id e por nome: com 1.500 pessoas, procurar na lista inteira a cada consulta fica lento
+let __hierIdx = null;
+function hierIndice(){
+  const lista = usersList || [];
+  if (!__hierIdx || __hierIdx.ref !== lista || __hierIdx.n !== lista.length) {
+    const porId = new Map(), porNome = new Map();
+    lista.forEach(u => { porId.set(u.id, u); if (!porNome.has(u.nome)) porNome.set(u.nome, u); });
+    __hierIdx = { ref: lista, n: lista.length, porId, porNome };
+  }
+  return __hierIdx;
+}
+function hierUsuario(id){ return hierIndice().porId.get(id) || null; }
+function hierUsuarioPorNome(nome){ return hierIndice().porNome.get(nome) || null; }
 
 // ---------- lojas ----------
 function hierLojas(){ if (!Array.isArray(db.lojas)) db.lojas = []; return db.lojas; }
@@ -3513,7 +3528,7 @@ function hierCadeiaAcima(userId, loja){
 }
 // Quem está abaixo de alguém: Map(idDaPessoa -> Set das lojas em que ela está abaixo)
 let __hierCache = {};
-function hierLimparCache(){ __hierCache = {}; }
+function hierLimparCache(){ __hierCache = {}; __hierIdx = null; }
 function hierAbaixoDe(liderId){
   if (__hierCache[liderId]) return __hierCache[liderId];
   const mapa = new Map();
@@ -4070,6 +4085,21 @@ function hierRemoverFotoMembro(userId){
   const prev = document.getElementById('hmFotoPrev'); if (prev) prev.innerHTML = hierFoto(u, 56);
 }
 
+// ---------- EQUIPES GRANDES ----------
+const HIER_MAX_LINHAS = 300; // linhas mostradas de uma vez nas tabelas de equipe (o resto aparece com a busca ou o filtro de loja)
+function hierNotaLimite(total, colunas, dica){
+  return total > HIER_MAX_LINHAS ? `<tr><td colspan="${colunas}" class="tc-sub" style="text-align:center;padding:10px;white-space:normal">Mostrando ${HIER_MAX_LINHAS} de ${total}. ${dica}</td></tr>` : '';
+}
+// O seletor "transferir venda" de cada linha só recebe a lista de pessoas quando é aberto
+function hierPreencherTransferencia(sel){
+  if (!sel || sel.dataset.cheio) return;
+  const atual = sel.value;
+  const nomes = equipeVisivelAtiva().map(u => u.nome).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (!nomes.includes(atual)) nomes.unshift(atual);
+  sel.innerHTML = nomes.map(n => `<option value="${esc(n)}" ${n === atual ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  sel.dataset.cheio = '1';
+}
+
 // ---------- LOJAS: cadastro (só quem está no topo) ----------
 function hierOpcoesLoja(atual){
   return '<option value="">Sem loja definida</option>' + hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
@@ -4261,11 +4291,18 @@ function hierMontarLoginTeste(){
   if (!btn) return;
   let box = document.getElementById('hierTesteBox');
   if (!box) { box = document.createElement('div'); box.id = 'hierTesteBox'; btn.insertAdjacentElement('afterend', box); }
-  const ordenados = (usersList || []).filter(u => u.ativo !== false).slice().sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  const lojas = hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  const lojaSel = (document.getElementById('hierTesteLoja') || {}).value || '';
+  const ordenados = (usersList || []).filter(u => u.ativo !== false && (!lojaSel || hierLojasDe(u).includes(lojaSel)))
+    .sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
   box.innerHTML = `<div class="hier-teste"><b>Modo de teste</b> — entrar direto como:
+    ${lojas.length > 1 ? `<select id="hierTesteLoja" onchange="hierMontarLoginTeste()">
+      <option value="">Todas as lojas (${(usersList || []).length} pessoas)</option>
+      ${lojas.map(l => `<option value="${l.id}" ${l.id === lojaSel ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
+    </select>` : ''}
     <select id="hierTesteSel" onchange="hierEntrarComo(this.value)">
       <option value="">Escolha uma pessoa...</option>
-      ${ordenados.map(u => `<option value="${u.id}">${esc(hierCargosTexto(u))} — ${esc(u.nome)}</option>`).join('')}
+      ${ordenados.map(u => `<option value="${u.id}">${esc(lojaSel ? hierCargoNaLoja(u, lojaSel) : hierCargosTexto(u))} — ${esc(u.nome)}</option>`).join('')}
     </select></div>`;
 }
 function hierEntrarComo(userId){
@@ -5870,7 +5907,15 @@ function populateUserSelects(){
       comisFilter.innerHTML = '<option value="all">Toda a Carteira</option>' + usersList.map(u=>`<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
     } else if(mySubordinateNames.length > 1) {
       comisFilter.style.display = 'inline-block';
-      comisFilter.innerHTML = '<option value="all">Minha Equipe Consolidada</option>' + usersList.filter(u => mySubordinateNames.includes(u.nome)).map(u=>`<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
+      // Com equipe grande, a tabela da equipe inteira é pesada: abre nas comissões da própria pessoa e deixa a equipe como opção.
+      const euNome = currentUser?.nome || '';
+      const outros = equipeVisivelAtiva().filter(u => u.id !== currentUser.id);
+      const assinatura = euNome + '|' + outros.length;
+      if (comisFilter.dataset.hierAssinatura !== assinatura) {
+        comisFilter.innerHTML = `<option value="${esc(euNome)}">Minhas comissões</option><option value="all">Minha equipe consolidada (${outros.length + 1} pessoas)</option>` +
+          outros.map(u=>`<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
+        comisFilter.dataset.hierAssinatura = assinatura;
+      }
     } else {
       comisFilter.innerHTML = `<option value="${esc(currentUser?.nome)}">${esc(currentUser?.nome)} (Minhas Comissões)</option>`;
       comisFilter.style.display = 'none';
@@ -5966,7 +6011,7 @@ function checkBirthdayNotifications(){
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
 
-  usersList.forEach(u => {
+  (MODO_HIERARQUIA ? equipeVisivelAtiva() : usersList).forEach(u => {
     if(!u.nasc) return;
     const parts = u.nasc.split('-').map(Number);
     if(parts.length < 3) return;
@@ -6679,9 +6724,9 @@ const startCol = 1, endCol = TOTAL_PARCELAS_COMISSAO;
       </td>
       <td>
         <select style="font-size:11px;padding:3px;margin:0;min-width:100px;${usersList.some(u=>u.nome===s.responsavel)?'':'border-color:#f59e0b;color:#b45309;font-weight:700'}"
-                title="Transferir esta venda para outro usuário" onchange="transferirVenda('${s.id}', this.value)">
+                title="Transferir esta venda para outro usuário" onfocus="hierPreencherTransferencia(this)" onmousedown="hierPreencherTransferencia(this)" onchange="transferirVenda('${s.id}', this.value)">
           ${usersList.some(u=>u.nome===s.responsavel) ? '' : `<option value="${esc(s.responsavel)}" selected>⚠️ ${esc(s.responsavel)} (não é mais usuário)</option>`}
-          ${equipeVisivelAtiva().map(u => `<option value="${esc(u.nome)}" ${u.nome===s.responsavel?'selected':''}>${esc(u.nome)}</option>`).join('')}
+          ${usersList.some(u=>u.nome===s.responsavel) ? `<option value="${esc(s.responsavel)}" selected>${esc(s.responsavel)}</option>` : ''}
         </select>
       </td>
       <td><span class="badge ${segmentoBadgeClass(s.segmento)}">${s.segmento}</span></td>
@@ -7610,9 +7655,16 @@ function renderUsers(){
 
   if (!currentUser) return;
   hierRenderLojas();
-  userTableEl.innerHTML = equipeVisivel().filter(hierNaLoja).sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(u => {
+  const buscaEquipe = (document.getElementById('hierBuscaEquipe')?.value || '').trim().toLowerCase();
+  const pessoasEquipe = equipeVisivel().filter(u => hierNaLoja(u) && (!buscaEquipe || (u.nome || '').toLowerCase().includes(buscaEquipe)));
+  const contaEquipe = document.getElementById('hierContaEquipe');
+  if (contaEquipe) contaEquipe.textContent = pessoasEquipe.length + ' pessoa(s)';
+  // quem lidera quem: conta uma vez só, em vez de varrer a lista inteira a cada linha
+  const lideradosDe = new Map();
+  (usersList || []).forEach(w => new Set(hierVinculos(w).map(v => v.liderId).filter(Boolean)).forEach(l => lideradosDe.set(l, (lideradosDe.get(l) || 0) + 1)));
+  userTableEl.innerHTML = pessoasEquipe.sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).slice(0, HIER_MAX_LINHAS).map(u => {
     const superior = getSuperiorUser(u.superiorId);
-    const subordinates = getDirectSubordinates(u.id);
+    const subordinates = { length: lideradosDe.get(u.id) || 0 };
     const abaixoDeMim = hierEstaAcima(currentUser.id, u.id);
     const inativo = u.ativo === false;
     const visao = subordinates.length ? '<span class="badge b-green">Equipe</span>' : '<span class="badge b-gray">Próprio</span>';
@@ -7637,7 +7689,7 @@ function renderUsers(){
         <td>${subordinates.length ? 'A equipe' : 'Só o próprio'}</td>
         <td>${acoes}</td>
       </tr>`;
-  }).join('');
+  }).join('') + hierNotaLimite(pessoasEquipe.length, 7, 'Use a busca por nome ou o filtro "Ver loja" para achar as outras pessoas.');
 }
 
 // === EXPORTAR DADOS DE VENDEDOR / EQUIPE (pra desmembramento ou envio a um liderado) ===
@@ -14906,7 +14958,7 @@ renderSemaforo = function() {
       <td class="tc-sub">${item.diag}</td>
     </tr>
   `;
-  }).join('') || (listaRanking.length > 0
+  }).slice(0, HIER_MAX_LINHAS).join('') + hierNotaLimite(listaFiltrada.length, 9, 'O ranking mostra os primeiros colocados; use o filtro "Ver loja" para ver cada loja.') || (listaRanking.length > 0
     ? `<tr><td colspan="9"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
     : `<tr><td colspan="8"><div class="empty-state"><span class="emoji">👔</span>Nenhum consultor cadastrado ainda.<br><button class="btn primary" style="margin-top:10px" onclick="show('usuarios', null)">+ Cadastrar Consultor</button></div></td></tr>`);
 };
