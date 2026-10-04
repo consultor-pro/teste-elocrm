@@ -559,7 +559,10 @@ body.arrastando-info, body.arrastando-info * { cursor: grabbing !important; user
 .tc-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; border: 0 !important; box-shadow: none; vertical-align: 1px; }
 .tc-num { font-variant-numeric: tabular-nums; font-weight: 650; text-align: right !important; }
 .tc-avatar { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; margin-right: 8px; overflow: hidden; vertical-align: middle; }
-.tc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.tc-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tc-avatar { flex-shrink: 0; }
+.hier-foto-linha { display: flex; align-items: center; gap: 14px; margin: 10px 0 14px; }
+.hier-foto-linha .tc-avatar { margin-right: 0; }
 .tc-btn { padding: 2px 9px; font-size: 11.5px; font-weight: 600; font-family: inherit; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 5px; cursor: pointer; margin-right: 5px; line-height: 1.5; }
 .tc-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
 .tc-btn.forte { border-color: #334155; color: #0f172a; }
@@ -2884,6 +2887,7 @@ async function sincronizarArquivosPesados(){
     renderAll();
   }
   if(typeof updateUserInterface === 'function' && currentUser) updateUserInterface();
+  if (typeof hierEncolherFotos === 'function') hierEncolherFotos();
 }
 
 // Ferramenta de diagnóstico — rode compararArmazenamento() no Console (F12)
@@ -3779,7 +3783,7 @@ function hierCartaoVenda(e, modo){
   const quemDecidiu = e.decididaPor ? (hierUsuario(e.decididaPor) || {}).nome : '';
   let topo, acoes;
   if (modo === 'conferir') {
-    topo = `<b>${esc(e.vendedorNome)}</b> <span class="tc-tag">${esc(vend ? vend.cargo : '')}</span> <small class="muted">enviou em ${enviada}</small>`;
+    topo = `${hierFoto(vend || { nome: e.vendedorNome }, 28)}<b>${esc(e.vendedorNome)}</b> <span class="tc-tag">${esc(vend ? vend.cargo : '')}</span> <small class="muted">enviou em ${enviada}</small>`;
     acoes = `<button class="btn green" onclick="hierAceitar('${e.id}')">${e.conflito ? 'Aceitar mesmo assim' : 'Aceitar'}</button>
              <button class="btn" onclick="hierAbrirRecusa('${e.id}')">Recusar</button>`;
   } else if (e.status === 'recusada') {
@@ -3970,6 +3974,79 @@ function hierReativarUsuario(userId){
   u.ativo = true; save(); renderAll(); showToast(`${u.nome} foi reativado(a).`);
 }
 
+// ---------- FOTO DE PERFIL ----------
+// Bolinha com a foto da pessoa (ou a inicial do nome, se não tiver foto)
+function hierFoto(u, tam){
+  tam = tam || 20;
+  const foto = (u && typeof avatarSrc === 'function') ? avatarSrc(u) : '';
+  return `<span class="tc-avatar" style="width:${tam}px;height:${tam}px;font-size:${Math.max(9, Math.round(tam * 0.45))}px">${foto ? `<img src="${foto}" alt="">` : esc(((u && u.nome) || '?').charAt(0).toUpperCase())}</span>`;
+}
+function hierFotoPorNome(nome, tam){ return hierFoto(hierUsuarioPorNome(nome) || { nome }, tam); }
+// Foto leve: recorta em quadrado, reduz para 96 px e baixa a qualidade até caber em ~5 KB.
+// (A maior foto na tela é a do pódio, com 80 px.)
+const FOTO_LADO = 96;
+const FOTO_MAX_BYTES = 5 * 1024;
+function hierComprimirFoto(fonte){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = typeof fonte === 'string' ? fonte : URL.createObjectURL(fonte);
+    const liberar = () => { if (typeof fonte !== 'string') URL.revokeObjectURL(url); };
+    img.onload = () => {
+      liberar();
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const lado = Math.min(w, h);
+      const canvas = document.createElement('canvas');
+      canvas.width = FOTO_LADO; canvas.height = FOTO_LADO;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, FOTO_LADO, FOTO_LADO); // fundo branco para PNG transparente
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, (w - lado) / 2, (h - lado) / 2, lado, lado, 0, 0, FOTO_LADO, FOTO_LADO);
+      let q = 0.8, dataUrl = canvas.toDataURL('image/jpeg', q);
+      while (Math.ceil(dataUrl.length * 0.75) > FOTO_MAX_BYTES && q > 0.35) { q -= 0.08; dataUrl = canvas.toDataURL('image/jpeg', q); }
+      resolve(dataUrl);
+    };
+    img.onerror = () => { liberar(); reject(new Error('Não foi possível ler essa imagem.')); };
+    img.src = url;
+  });
+}
+// Guarda a foto (já comprimida) de uma pessoa
+async function hierGravarFoto(u, dataUrl){
+  const idArquivo = 'avatar_' + u.id;
+  const ok = await idbSetArquivo(idArquivo, dataUrl);
+  arquivoCache[idArquivo] = dataUrl;
+  u.avatar = ok ? ('idb:' + idArquivo) : dataUrl;
+}
+// Fotos antigas (maiores) são reduzidas sozinhas na primeira vez que o CRM abre
+async function hierEncolherFotos(){
+  let mudou = false;
+  for (const u of (usersList || [])) {
+    const atual = (typeof avatarSrc === 'function') ? avatarSrc(u) : '';
+    if (!atual || Math.ceil(atual.length * 0.75) <= FOTO_MAX_BYTES * 1.6) continue;
+    try { await hierGravarFoto(u, await hierComprimirFoto(atual)); mudou = true; } catch (e) { /* mantém a foto antiga */ }
+  }
+  if (mudou) save();
+}
+// Líder troca ou remove a foto de quem está abaixo dele (no "Editar")
+function hierTrocarFotoMembro(userId, input){
+  const u = hierUsuario(userId); const file = input && input.files && input.files[0];
+  if (!u || !file || !hierEstaAcima(currentUser.id, u.id)) return;
+  if (!file.type.startsWith('image/')) { alert('Selecione um arquivo de imagem.'); input.value = ''; return; }
+  hierComprimirFoto(file).then(async dataUrl => {
+    await hierGravarFoto(u, dataUrl);
+    save();
+    const prev = document.getElementById('hmFotoPrev'); if (prev) prev.innerHTML = hierFoto(u, 56);
+    showToast('Foto atualizada (' + (Math.ceil(dataUrl.length * 0.75) / 1024).toFixed(1).replace('.', ',') + ' KB).');
+  }).catch(err => alert(err.message || 'Não foi possível processar essa imagem.')).finally(() => { input.value = ''; });
+}
+function hierRemoverFotoMembro(userId){
+  const u = hierUsuario(userId);
+  if (!u || !u.avatar || !hierEstaAcima(currentUser.id, u.id)) return;
+  if (String(u.avatar).indexOf('idb:') === 0) { const id = u.avatar.slice(4); idbDeleteArquivo(id); delete arquivoCache[id]; }
+  u.avatar = '';
+  save();
+  const prev = document.getElementById('hmFotoPrev'); if (prev) prev.innerHTML = hierFoto(u, 56);
+}
+
 // ---------- LOJAS: cadastro (só quem está no topo) ----------
 function hierOpcoesLoja(atual){
   return '<option value="">Sem loja definida</option>' + hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
@@ -4076,6 +4153,15 @@ function hierEditarMembro(userId){
   openModal(`
     <div class="between"><h2 style="margin:0">Editar cadastro</h2><button class="btn" onclick="closeModal()">✕</button></div>
     <p class="muted" style="font-size:13px;margin:6px 0 12px">${esc(u.cargo || 'Consultor')} · se o nome mudar, as vendas, os leads e a agenda dessa pessoa acompanham o nome novo.</p>
+    <div class="hier-foto-linha">
+      <span id="hmFotoPrev">${hierFoto(u, 56)}</span>
+      <div>
+        <button class="tc-btn" onclick="document.getElementById('hmFotoInput').click()">Carregar foto</button>
+        <button class="tc-btn perigo" onclick="hierRemoverFotoMembro('${u.id}')">Remover</button>
+        <input type="file" id="hmFotoInput" accept="image/*" style="display:none" onchange="hierTrocarFotoMembro('${u.id}', this)">
+        <div class="tc-sub" style="margin-top:4px">A foto é reduzida sozinha (quadrada, bem leve). A própria pessoa também pode trocar em Configurações.</div>
+      </div>
+    </div>
     <div class="field"><label>Nome completo</label><input id="hmNome" value="${esc(u.nome || '')}"></div>
     <div class="field"><label>Usuário ou e-mail de acesso</label><input id="hmEmail" value="${esc(u.email || '')}"></div>
     <div class="field"><label>WhatsApp com DDD</label><input id="hmTel" value="${esc(u.tel || '')}"></div>
@@ -5914,7 +6000,7 @@ function renderBirthdays(){
       ? `<b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="openLead('${item.leadId}')">${esc(item.nome)}</b>`
       : `<b>${esc(item.nome)}</b>`;
     return `<tr>
-      <td>${nomeClicavel}<br><small class="muted">${esc(item.tel||'-')}${item.tipo==='Cliente'?linkWhatsAppTel(item.tel):''}</small></td>
+      <td>${item.tipo === 'Equipe' ? hierFotoPorNome(item.nome, 28) : ''}<span style="display:inline-block;vertical-align:middle">${nomeClicavel}<br><small class="muted">${esc(item.tel||'-')}${item.tipo==='Cliente'?linkWhatsAppTel(item.tel):''}</small></span></td>
       <td><span class="badge ${item.tipo==='Equipe'?'b-purple':'b-blue'}">${item.tipo} (${esc(item.cargo)})</span></td>
       <td><b>${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')}</b> (${ano})</td>
       <td>${idade} anos</td>
@@ -7488,7 +7574,7 @@ function renderUsers(){
     }
     return `
       <tr${inativo ? ' style="opacity:.55"' : ''}>
-        <td><span class="tc-avatar">${foto ? `<img src="${foto}">` : esc((u.nome || '?').charAt(0).toUpperCase())}</span><b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
+        <td>${hierFoto(u, 26)}<b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.tel || '-')}</td>
         <td>${esc(u.cargo || 'Consultor')}</td>
@@ -10477,7 +10563,7 @@ function renderDashboard(){
 
       tc += uLeads; tm += uMeets; tvq += uSales.length; tvv += uSalesSum;
       return `<tr>
-        <td><b>👤 ${esc(u.nome)}</b></td>
+        <td>${hierFoto(u, 24)}<b>${esc(u.nome)}</b></td>
         <td><span class="badge b-purple">${esc(u.cargo)}</span></td>
         <td>${MODO_HIERARQUIA ? (esc(hierNomesLideres(u)) || '<span class="muted">Topo</span>') : (sup ? `<span class="badge b-blue">👑 ${esc(sup.nome)}</span>` : '<span class="badge b-gray">Topo</span>')}</td>
         <td>${MODO_HIERARQUIA && u.id !== currentUser.id ? '<span class="muted" title="Leads são particulares de cada pessoa">🔒</span>' : `<b>${uLeads}</b>`}</td>
@@ -10500,7 +10586,7 @@ function renderDashboard(){
     <tr>
       <td>${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '-'}</td>
       <td><b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="abrirCadastroClientePorLead('${s.leadId||''}')">${esc(s.lead)}</b></td>
-      <td><span class="badge b-blue" style="cursor:pointer" title="Abrir cadastro do vendedor" onclick="abrirCadastroVendedor('${esc(s.responsavel)}')">👤 ${esc(s.responsavel)}</span></td>
+      <td><span class="badge b-blue" style="cursor:pointer" title="Abrir cadastro do vendedor" onclick="abrirCadastroVendedor('${esc(s.responsavel)}')">${hierFotoPorNome(s.responsavel, 18)}${esc(s.responsavel)}</span></td>
       <td><span class="badge ${s.segmento==='Imóvel'?'b-red':s.segmento==='Veículo'?'b-blue':s.segmento==='Bens móveis'?'b-orange':'b-green'}">${esc(s.segmento)}</span></td>
       <td><b>${s.modalidadeParcela||'50%'}</b></td>
       <td style="cursor:pointer;text-decoration:underline dotted" title="Editar esta cota" onclick="abrirEdicaoCotaPorVenda('${s.id}')">Grp ${esc(s.grupo)} | Cota ${esc(s.cota)} ${s.contemplada?'[⭐]':''}</td>
@@ -10555,7 +10641,7 @@ function renderDashboard(){
           <div class="ranking-row ${i===0?'top1':i===1?'top2':i===2?'top3':''}">
             <div class="ranking-pos">${i+1}º</div>
             <div class="ranking-info">
-              <b>${esc(r.nome)}</b>
+              ${hierFotoPorNome(r.nome, 22)}<b>${esc(r.nome)}</b>
               <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width:${Math.max(r.volume/maxVol*100,3)}%"></div></div>
             </div>
             <div class="ranking-value">${Number(r.volume).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}<br><small class="muted" style="font-weight:600">${r.qtd} cota${r.qtd===1?'':'s'}</small></div>
@@ -11159,7 +11245,8 @@ function savePosVenda(){
 }
 
 function exportData(){
-  const blob = new Blob([JSON.stringify({db, usersList, brand, notifications, infoPosts, googleConfig}, null, 2)], {type: 'application/json'});
+  const usuariosComFoto = (usersList || []).map(u => Object.assign({}, u, { avatar: (typeof avatarSrc === 'function' ? avatarSrc(u) : '') || '' }));
+  const blob = new Blob([JSON.stringify({db, usersList: usuariosComFoto, brand, notifications, infoPosts, googleConfig}, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `backup_${BACKUP_FILE_PREFIX}_${new Date().toISOString().slice(0,10)}.json`;
@@ -14402,8 +14489,10 @@ function renderVendasConsultores() {
   const consultorObj = usersList.find(u => u.nome === consultorSel);
   if (infoBox) {
     infoBox.innerHTML = `
-      <div style="display:flex;flex-wrap:wrap;gap:24px;font-size:13px">
+      <div style="display:flex;flex-wrap:wrap;gap:24px;font-size:13px;align-items:center">
+        ${hierFoto(consultorObj || { nome: consultorSel }, 44)}
         <div><b>Consultor:</b> ${esc(consultorSel || '-')}</div>
+        <div><b>Cargo:</b> ${esc(consultorObj?.cargo || '-')}</div>
         <div><b>E-mail:</b> ${esc(consultorObj?.email || '-')}</div>
         <div><b>Telefone:</b> ${esc(consultorObj?.tel || '-')}</div>
       </div>`;
@@ -14751,7 +14840,7 @@ renderSemaforo = function() {
     return `
     <tr>
       <td><b>${idx + 1}º</b></td>
-      <td><span class="tc-ponto ${item.semaforoClass}"></span><b>${esc(item.nome)}</b></td>
+      <td><span class="tc-ponto ${item.semaforoClass}"></span>${hierFoto(item.userObj || { nome: item.nome }, 24)}<b>${esc(item.nome)}</b></td>
       <td>${esc(cargoTxt)}</td>
       <td>${esc(hierNomesLideres(item.userObj)) || '<span class="tc-sub">Topo</span>'}</td>
       <td>${esc(hierNomesLojas(item.userObj)) || '<span class="tc-sub">-</span>'}</td>
@@ -15132,14 +15221,14 @@ window.uploadAvatar = function(event) {
     event.target.value = '';
     return;
   }
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Escolha uma imagem de até 5MB.');
+  if (file.size > 30 * 1024 * 1024) {
+    alert('Escolha uma imagem de até 30MB.');
     event.target.value = '';
     return;
   }
 
-  // Foto de perfil é sempre pequena — reduz bem forte (240px, ~50KB) sem perder qualidade perceptível.
-  comprimirImagem(file, { maxDim: 240, maxBytes: 50 * 1024 }).then(async dataUrl => {
+  // Foto de perfil bem leve: quadrada, 96 px, no máximo ~5 KB (ver hierComprimirFoto).
+  hierComprimirFoto(file).then(async dataUrl => {
     const idArquivo = 'avatar_' + currentUser.id;
     const ok = await idbSetArquivo(idArquivo, dataUrl);
     arquivoCache[idArquivo] = dataUrl; // disponível na hora, sem precisar buscar de volta
