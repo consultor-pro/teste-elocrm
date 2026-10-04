@@ -583,7 +583,7 @@ body.arrastando-info, body.arrastando-info * { cursor: grabbing !important; user
 .hier-loja-chip a { color: #64748b; font-size: 11px; cursor: pointer; }
 .hier-loja-chip a:hover { color: #0f172a; text-decoration: underline; }
 .hier-vinc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
-.hier-vinc select { flex: 1; min-width: 130px; padding: 5px 8px; font-size: 13px; margin: 0; }
+.hier-vinc select { flex: 1; min-width: 120px; padding: 5px 8px; font-size: 12.5px; margin: 0; }
 .hier-vinc.fixo { justify-content: space-between; background: #f8fafc; }
 [data-theme="dark"] .hier-linha-equipe, [data-theme="dark"] .hier-loja-chip, [data-theme="dark"] .hier-vinc.fixo { background: #161b22; border-color: #30363d; color: #c9d1d9; }
 [data-theme="dark"] .hier-lojas, [data-theme="dark"] .hier-vinc { border-color: #30363d; }
@@ -2056,8 +2056,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
           <th>Membro</th>
           <th>Usuário</th>
           <th>WhatsApp</th>
-          <th>Cargo</th>
-          <th>Loja › líder direto</th>
+          <th>Loja · cargo › líder direto</th>
           <th>Liderados</th>
           <th>Enxerga</th>
           <th>Ações</th>
@@ -3106,8 +3105,9 @@ async function carregarDaNuvem() {
 
 const MODO_HIERARQUIA = true;
 const HIER_TESTE = true; // cópia de teste: mostra o atalho "entrar como" na tela de login
-const HIER_CARGOS = ['Dono de Loja', 'Diretor', 'Gerente Operacional', 'Gestor Sênior', 'Gestor pleno', 'Gestor', 'Consultor autorizado', 'Consultor'];
-const HIER_NIVEL_CONSULTOR = 6; // consultor autorizado e consultor ficam no mesmo nível
+// Do mais alto para o mais baixo. O cargo é POR LOJA: a mesma pessoa pode ser Diretor em uma loja e Gestor em outra.
+const HIER_CARGOS = ['Dono de Loja', 'Diretor', 'Sócio Operacional', 'Gerente Operacional', 'Gestor Sênior', 'Gestor pleno', 'Gestor', 'Consultor autorizado', 'Consultor'];
+const HIER_NIVEL_CONSULTOR = 7; // consultor autorizado e consultor ficam no mesmo nível
 
 const ROLES = HIER_CARGOS.slice();
 
@@ -3338,7 +3338,7 @@ function isManagerRole(role){
 
 function canCurrentUserManageMembers(){
   if(!currentUser) return false;
-  if (MODO_HIERARQUIA) return hierPodeLiderar(currentUser.cargo);
+  if (MODO_HIERARQUIA) return hierLideraAlgo(currentUser);
   return currentUser.canManageMembers === true || isManagerRole(currentUser.cargo);
 }
 
@@ -3428,8 +3428,9 @@ function canUserAccessFollow(follow){
 
 // ================== MODO HIERARQUIA (cópia de teste) ==================
 // Regras:
-// - Cada pessoa tem um ou mais VÍNCULOS: em cada vínculo, uma loja e o líder dela naquela loja.
-//   Assim um gestor pode ter equipes em lojas diferentes e responder a líderes diferentes.
+// - Cada pessoa tem um ou mais VÍNCULOS: em cada vínculo, uma loja, o CARGO dela naquela loja e o
+//   líder dela naquela loja. Assim a mesma pessoa pode ser Diretor em uma loja e Gestor em outra,
+//   ter equipes em lojas diferentes e responder a líderes diferentes.
 // - Quem está acima enxerga só as VENDAS ACEITAS de quem está abaixo, e só as da loja em que
 //   está acima (nunca leads nem agenda); ninguém enxerga quem está ao lado.
 // - A venda de um liderado fica "aguardando aceite" do líder direto daquela loja e só entra em
@@ -3446,27 +3447,49 @@ function hierUsuarioPorNome(nome){ return (usersList || []).find(u => u.nome ===
 function hierLojas(){ if (!Array.isArray(db.lojas)) db.lojas = []; return db.lojas; }
 function hierLojaNome(id){ const l = hierLojas().find(x => x.id === id); return l ? l.nome : ''; }
 
-// ---------- vínculos: [{ loja, liderId }] — o primeiro é o principal ----------
-// Cadastros antigos (um líder só, em "superiorId") viram vínculos automaticamente.
+// ---------- vínculos: [{ loja, cargo, liderId }] — o primeiro é o principal ----------
+// Cadastros antigos (um líder e um cargo só) viram vínculos automaticamente.
 function hierVinculos(u){
   if (!u) return [];
-  if (Array.isArray(u.vinculos)) return u.vinculos.filter(v => v && (v.loja || v.liderId));
+  if (Array.isArray(u.vinculos)) return u.vinculos.filter(v => v && (v.loja || v.liderId)).map(v => v.cargo ? v : Object.assign({}, v, { cargo: u.cargo || 'Consultor' }));
   const lojas = (Array.isArray(u.lojas) && u.lojas.length) ? u.lojas.slice() : (u.loja ? [u.loja] : ['']);
   if (u.loja && lojas[0] !== u.loja) { const i = lojas.indexOf(u.loja); if (i > 0) lojas.splice(i, 1); lojas.unshift(u.loja); }
-  return lojas.map(l => ({ loja: l || '', liderId: u.superiorId || null })).filter(v => v.loja || v.liderId);
+  return lojas.map(l => ({ loja: l || '', liderId: u.superiorId || null, cargo: u.cargo || 'Consultor' })).filter(v => v.loja || v.liderId);
 }
 // Grava os vínculos e mantém os campos antigos em dia (loja e líder principais)
 function hierGravarVinculos(u, vinculos){
   const vistos = new Set();
   u.vinculos = (vinculos || []).filter(v => v && (v.loja || v.liderId)).filter(v => {
     const k = (v.loja || '') + '|' + (v.liderId || ''); if (vistos.has(k)) return false; vistos.add(k); return true;
-  }).map(v => ({ loja: v.loja || '', liderId: v.liderId || null }));
+  }).map(v => ({ loja: v.loja || '', liderId: v.liderId || null, cargo: v.cargo || u.cargo || 'Consultor' }));
+  if (u.vinculos.length) u.cargo = u.vinculos[0].cargo; // cargo principal (o da primeira linha)
   u.loja = (u.vinculos.find(v => v.loja) || {}).loja || '';
   u.lojas = [...new Set(u.vinculos.map(v => v.loja).filter(Boolean))];
   u.superiorId = (u.vinculos.find(v => v.liderId) || {}).liderId || null;
   hierLimparCache();
 }
 function hierLojasDe(u){ return [...new Set(hierVinculos(u).map(v => v.loja).filter(id => id && hierLojas().some(l => l.id === id)))]; }
+// Cargo da pessoa em uma loja (o mais alto, se ela tiver mais de um vínculo ali); fora das lojas dela, vale o principal
+function hierCargoNaLoja(u, loja){
+  if (!u) return '';
+  const doLugar = hierVinculos(u).filter(v => v.loja === (loja || '') || (!v.loja && loja)).map(v => v.cargo).filter(Boolean);
+  if (!doLugar.length) return u.cargo || 'Consultor';
+  return doLugar.sort((a, b) => hierNivel(a) - hierNivel(b))[0];
+}
+// Nível mais alto que a pessoa tem em qualquer loja (usado para ordenar e para saber se ela lidera)
+function hierMelhorNivel(u){
+  const niveis = hierVinculos(u).map(v => hierNivel(v.cargo));
+  return niveis.length ? Math.min(...niveis) : hierNivel(u && u.cargo);
+}
+function hierLideraAlgo(u){ return !!u && hierMelhorNivel(u) < HIER_NIVEL_CONSULTOR; }
+// Texto dos cargos: com o filtro de loja ligado, o cargo naquela loja; sem filtro, todos os cargos da pessoa
+function hierCargosTexto(u){
+  if (!u) return '';
+  const f = (typeof hierFiltroLoja === 'function') ? hierFiltroLoja() : 'all';
+  if (f !== 'all' && hierVinculos(u).some(v => v.loja === f)) return hierCargoNaLoja(u, f);
+  const cargos = [...new Set(hierVinculos(u).map(v => v.cargo).filter(Boolean))].sort((a, b) => hierNivel(a) - hierNivel(b));
+  return cargos.join(' / ') || u.cargo || 'Consultor';
+}
 function hierLojaPrincipal(u){ return hierLojasDe(u)[0] || ''; }
 function hierNomesLojas(u){ return hierLojasDe(u).map(hierLojaNome).filter(Boolean).join(', '); }
 function hierNomesLideres(u){ return [...new Set(hierVinculos(u).map(v => (hierUsuario(v.liderId) || {}).nome).filter(Boolean))].join(', '); }
@@ -3783,7 +3806,7 @@ function hierCartaoVenda(e, modo){
   const quemDecidiu = e.decididaPor ? (hierUsuario(e.decididaPor) || {}).nome : '';
   let topo, acoes;
   if (modo === 'conferir') {
-    topo = `${hierFoto(vend || { nome: e.vendedorNome }, 28)}<b>${esc(e.vendedorNome)}</b> <span class="tc-tag">${esc(vend ? vend.cargo : '')}</span> <small class="muted">enviou em ${enviada}</small>`;
+    topo = `${hierFoto(vend || { nome: e.vendedorNome }, 28)}<b>${esc(e.vendedorNome)}</b> <span class="tc-tag">${esc(vend ? hierCargoNaLoja(vend, hierLojaDaEnviada(e)) : '')}</span> <small class="muted">enviou em ${enviada}</small>`;
     acoes = `<button class="btn green" onclick="hierAceitar('${e.id}')">${e.conflito ? 'Aceitar mesmo assim' : 'Aceitar'}</button>
              <button class="btn" onclick="hierAbrirRecusa('${e.id}')">Recusar</button>`;
   } else if (e.status === 'recusada') {
@@ -3809,7 +3832,7 @@ function abrirAceiteVendas(){
   if (!currentUser) return;
   const paraMim = hierPendentesParaMim();
   const minhas = hierMinhasEnviadas().slice().sort((a, b) => (a.status === 'recusada' ? -1 : 1) - (b.status === 'recusada' ? -1 : 1));
-  const lidero = hierPodeLiderar(currentUser.cargo) || hierTenhoEquipe() || paraMim.length > 0;
+  const lidero = hierLideraAlgo(currentUser) || hierTenhoEquipe() || paraMim.length > 0;
   const temLider = hierTemLider(currentUser.id);
   openModal(`
     <div class="between"><h2 style="margin:0">Aceite de Vendas</h2><button class="btn" onclick="closeModal()">✕</button></div>
@@ -3962,7 +3985,7 @@ function hierDesativarUsuario(userId){
     hierVinculos(x).forEach(v => {
       if (v.liderId !== u.id) return novos.push(v);
       const acima = hierLideresNaLoja(u.id, v.loja);
-      if (acima.length) acima.forEach(l => novos.push({ loja: v.loja, liderId: l })); else novos.push({ loja: v.loja, liderId: null });
+      if (acima.length) acima.forEach(l => novos.push({ loja: v.loja, liderId: l, cargo: v.cargo })); else novos.push({ loja: v.loja, liderId: null, cargo: v.cargo });
     });
     hierGravarVinculos(x, novos);
   });
@@ -4053,7 +4076,10 @@ function hierOpcoesLoja(atual){
     .map(l => `<option value="${l.id}" ${l.id === atual ? 'selected' : ''}>${esc(l.nome)}</option>`).join('');
 }
 function hierTextoVinculos(u){
-  return hierVinculos(u).map(v => [hierLojaNome(v.loja), (hierUsuario(v.liderId) || {}).nome].filter(Boolean).join(' › ')).filter(Boolean).join('  ·  ');
+  return hierVinculos(u).map(v => {
+    const lider = (hierUsuario(v.liderId) || {}).nome;
+    return [hierLojaNome(v.loja), v.cargo].filter(Boolean).join(' · ') + (lider ? ' › ' + lider : '');
+  }).filter(Boolean).join('   |   ');
 }
 function hierRenderLojas(){
   const el = document.getElementById('hierLojasCard');
@@ -4108,41 +4134,60 @@ function hierExcluirLoja(id){
 function hierDefinirMinhaLoja(v){
   if (!hierPodeGerirLojas()) return;
   const outras = hierLojasDe(currentUser).filter(l => l !== v);
-  hierGravarVinculos(currentUser, (v ? [v] : []).concat(outras).map(l => ({ loja: l, liderId: null })));
+  hierGravarVinculos(currentUser, (v ? [v] : []).concat(outras).map(l => ({ loja: l, liderId: null, cargo: hierCargoNaLoja(currentUser, l) })));
   save(); showToast('Sua loja principal foi atualizada.');
 }
 
-// ---------- VÍNCULOS: uma linha por loja, com o líder da pessoa naquela loja ----------
-// Quem pode ser líder de alguém: eu ou alguém abaixo de mim, com cargo acima do dela, e que não esteja abaixo dela
-function hierLideresPossiveis(u){
+// ---------- VÍNCULOS: uma linha por loja, com o cargo e o líder da pessoa naquela loja ----------
+// Quem pode ser líder de alguém numa loja: eu ou alguém abaixo de mim, que não esteja abaixo dela,
+// e que NAQUELA LOJA tenha cargo acima do cargo que ela terá ali.
+function hierLideresPossiveis(u, loja, cargo){
   const abaixoDela = hierAbaixoDe(u.id);
-  return equipeVisivelAtiva().filter(o => o.id !== u.id && !abaixoDela.has(o.id) && hierNivel(o.cargo) < hierNivel(u.cargo))
-    .sort((a, b) => hierNivel(a.cargo) - hierNivel(b.cargo) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  return equipeVisivelAtiva().filter(o => o.id !== u.id && !abaixoDela.has(o.id) && hierNivel(hierCargoNaLoja(o, loja)) < hierNivel(cargo))
+    .sort((a, b) => hierNivel(hierCargoNaLoja(a, loja)) - hierNivel(hierCargoNaLoja(b, loja)) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+}
+// Cargos que eu posso dar: só os que ficam abaixo do meu cargo mais alto
+function hierCargosQuePossoDar(){ return ROLES.filter(r => hierNivel(r) > hierMelhorNivel(currentUser)); }
+function hierVincMudar(userId, i, campo, valor){
+  const v = (window.__hmVinc || [])[i]; const u = hierUsuario(userId);
+  if (!v || !u) return;
+  v[campo] = valor;
+  // se o líder escolhido não serve mais para essa loja e esse cargo, troca pelo primeiro que serve
+  const lideres = hierLideresPossiveis(u, v.loja, v.cargo);
+  if (!lideres.some(o => o.id === v.liderId)) v.liderId = lideres.some(o => o.id === currentUser.id) ? currentUser.id : ((lideres[0] || {}).id || '');
+  hierRenderVinculos(userId);
 }
 function hierRenderVinculos(userId){
   const el = document.getElementById('hmVinculos'); const u = hierUsuario(userId);
   if (!el || !u) return;
-  const lideres = hierLideresPossiveis(u);
+  const cargos = hierCargosQuePossoDar();
   el.innerHTML = (window.__hmVinc || []).map((v, i) => {
     const lider = hierUsuario(v.liderId);
-    if (v.fixo) return `<div class="hier-vinc fixo"><span>${esc(hierLojaNome(v.loja) || 'Sem loja')} › <b>${esc(lider ? lider.nome : '-')}</b></span><span class="tc-sub">definido por outra liderança</span></div>`;
+    if (v.fixo) return `<div class="hier-vinc fixo"><span>${esc(hierLojaNome(v.loja) || 'Sem loja')} · ${esc(v.cargo || '')} › <b>${esc(lider ? lider.nome : '-')}</b></span><span class="tc-sub">definido por outra liderança</span></div>`;
+    const lideres = hierLideresPossiveis(u, v.loja, v.cargo);
+    const listaCargos = cargos.includes(v.cargo) ? cargos : [v.cargo].concat(cargos);
     return `<div class="hier-vinc">
-      <select class="hmVincLoja" onchange="window.__hmVinc[${i}].loja = this.value">${hierOpcoesLoja(v.loja)}</select>
-      <span class="tc-sub">líder:</span>
-      <select class="hmVincLider" onchange="window.__hmVinc[${i}].liderId = this.value">
-        ${lideres.map(o => `<option value="${o.id}" ${o.id === v.liderId ? 'selected' : ''}>${esc(o.nome)} (${esc(o.cargo)})</option>`).join('')}
+      <select class="hmVincLoja" title="Loja" onchange="hierVincMudar('${u.id}', ${i}, 'loja', this.value)">${hierOpcoesLoja(v.loja)}</select>
+      <select class="hmVincCargo" title="Cargo nesta loja" onchange="hierVincMudar('${u.id}', ${i}, 'cargo', this.value)">
+        ${listaCargos.map(c => `<option value="${esc(c)}" ${c === v.cargo ? 'selected' : ''}>${esc(c)}</option>`).join('')}
       </select>
-      ${i === 0 ? '<span class="tc-tag" title="Loja e líder principais">principal</span>' : `<button class="tc-btn perigo" onclick="window.__hmVinc.splice(${i},1); hierRenderVinculos('${u.id}')">remover</button>`}
+      <span class="tc-sub">líder:</span>
+      <select class="hmVincLider" title="Líder nesta loja" onchange="hierVincMudar('${u.id}', ${i}, 'liderId', this.value)">
+        ${lideres.map(o => `<option value="${o.id}" ${o.id === v.liderId ? 'selected' : ''}>${esc(o.nome)} (${esc(hierCargoNaLoja(o, v.loja))})</option>`).join('') || '<option value="">Ninguém com cargo acima nesta loja</option>'}
+      </select>
+      ${i === 0 ? '<span class="tc-tag" title="Loja, cargo e líder principais">principal</span>' : `<button class="tc-btn perigo" onclick="window.__hmVinc.splice(${i},1); hierRenderVinculos('${u.id}')">remover</button>`}
     </div>`;
-  }).join('') || '<span class="tc-sub">Nenhuma loja ou líder definido.</span>';
+  }).join('') || '<span class="tc-sub">Nenhuma loja, cargo ou líder definido.</span>';
 }
 function hierAddVinculo(userId){
   const u = hierUsuario(userId); if (!u) return;
-  const lideres = hierLideresPossiveis(u);
-  if (!lideres.length) return alert('Não há ninguém com cargo acima para ser líder desta pessoa.');
   const usadas = (window.__hmVinc || []).map(v => v.loja);
   const livre = hierLojas().find(l => !usadas.includes(l.id));
-  window.__hmVinc.push({ loja: livre ? livre.id : '', liderId: lideres.some(o => o.id === currentUser.id) ? currentUser.id : lideres[0].id });
+  const loja = livre ? livre.id : '';
+  const cargos = hierCargosQuePossoDar();
+  const cargo = cargos.includes(u.cargo) ? u.cargo : (cargos[cargos.length - 1] || 'Consultor');
+  const lideres = hierLideresPossiveis(u, loja, cargo);
+  window.__hmVinc.push({ loja, cargo, liderId: lideres.some(o => o.id === currentUser.id) ? currentUser.id : ((lideres[0] || {}).id || '') });
   hierRenderVinculos(userId);
 }
 
@@ -4166,14 +4211,14 @@ function hierEditarMembro(userId){
     <div class="field"><label>Usuário ou e-mail de acesso</label><input id="hmEmail" value="${esc(u.email || '')}"></div>
     <div class="field"><label>WhatsApp com DDD</label><input id="hmTel" value="${esc(u.tel || '')}"></div>
     <div class="field"><label>Data de nascimento (aparece em Aniversariantes)</label><input type="date" id="hmNasc" value="${esc(u.nasc || '')}"></div>
-    <div class="field"><label>Lojas e líderes</label>
+    <div class="field"><label>Lojas, cargos e líderes</label>
       <div id="hmVinculos"></div>
-      <button class="tc-btn" style="margin-top:6px" onclick="hierAddVinculo('${u.id}')">+ Adicionar outra loja / outro líder</button>
-      <small class="muted" style="display:block;margin-top:6px">Cada linha é uma loja em que a pessoa atua e quem lidera ela naquela loja. Pode ter várias lojas e líderes diferentes. Cada líder enxerga só as vendas da loja em que é líder dela.</small></div>
+      <button class="tc-btn" style="margin-top:6px" onclick="hierAddVinculo('${u.id}')">+ Adicionar outra loja</button>
+      <small class="muted" style="display:block;margin-top:6px">Cada linha é uma loja em que a pessoa atua, o cargo dela ali e quem lidera ela ali. Ela pode ser Diretor em uma loja e Gestor em outra. O líder precisa ter, naquela loja, cargo acima do dela. Cada líder enxerga só as vendas da loja em que é líder dela.</small></div>
     <div class="row" style="justify-content:flex-end"><button class="btn primary" onclick="hierSalvarMembro('${u.id}')">Salvar</button></div>`);
   // linhas de vínculo: eu só mexo nas que apontam para mim ou para alguém da minha equipe
   const meus = new Set(equipeVisivel().map(o => o.id));
-  window.__hmVinc = hierVinculos(u).map(v => ({ loja: v.loja || '', liderId: v.liderId || '', fixo: !!v.liderId && !meus.has(v.liderId) }));
+  window.__hmVinc = hierVinculos(u).map(v => ({ loja: v.loja || '', cargo: v.cargo || u.cargo || 'Consultor', liderId: v.liderId || '', fixo: !!v.liderId && !meus.has(v.liderId) }));
   hierRenderVinculos(u.id);
 }
 function hierSalvarMembro(userId){
@@ -4188,10 +4233,20 @@ function hierSalvarMembro(userId){
   if (usersList.some(x => x.id !== u.id && (x.nome || '').trim().toLowerCase() === nome.toLowerCase())) return alert('Já existe outra pessoa com esse nome. Use um nome diferente (ex: com sobrenome).');
   if (usersList.some(x => x.id !== u.id && (x.email || '').toLowerCase() === email)) return alert('Esse usuário/e-mail já está em uso por outra pessoa.');
   const nomeAntigo = u.nome;
-  const vinc = (window.__hmVinc || []).map(v => ({ loja: v.loja || '', liderId: v.liderId || null }));
+  const linhas = window.__hmVinc || [];
+  const vinc = linhas.map(v => ({ loja: v.loja || '', cargo: v.cargo || 'Consultor', liderId: v.liderId || null }));
   if (!vinc.some(v => v.liderId)) return alert('A pessoa precisa de pelo menos um líder.');
   const repetido = vinc.find((v, i) => vinc.findIndex(x => x.loja === v.loja && x.liderId === v.liderId) !== i);
   if (repetido) return alert('Há duas linhas iguais (mesma loja e mesmo líder). Remova uma delas.');
+  for (let i = 0; i < linhas.length; i++) {
+    const v = linhas[i]; if (v.fixo) continue;
+    const nomeLoja = hierLojaNome(v.loja) || 'sem loja';
+    if (!v.liderId || !hierLideresPossiveis(u, v.loja, v.cargo).some(o => o.id === v.liderId))
+      return alert(`Na linha "${nomeLoja}": o líder precisa ter, nessa loja, cargo acima de ${v.cargo}. Escolha outro líder ou outro cargo.`);
+    // quem ela lidera nessa loja precisa continuar com cargo abaixo do dela
+    const acimaDela = (usersList || []).find(w => w.id !== u.id && hierVinculos(w).some(x => x.liderId === u.id && (x.loja || '') === (v.loja || '') && hierNivel(x.cargo) <= hierNivel(v.cargo)));
+    if (acimaDela) return alert(`Na linha "${nomeLoja}": ${acimaDela.nome} é liderado(a) dela nessa loja e tem cargo igual ou acima de ${v.cargo}. Ajuste o cargo ou troque o líder de ${acimaDela.nome} antes.`);
+  }
   u.nome = nome; u.email = email; u.tel = tel; u.nasc = nasc;
   hierGravarVinculos(u, vinc);
   if (nomeAntigo !== nome && typeof cascatearRenomeacaoResponsavel === 'function') cascatearRenomeacaoResponsavel(nomeAntigo, nome);
@@ -4206,11 +4261,11 @@ function hierMontarLoginTeste(){
   if (!btn) return;
   let box = document.getElementById('hierTesteBox');
   if (!box) { box = document.createElement('div'); box.id = 'hierTesteBox'; btn.insertAdjacentElement('afterend', box); }
-  const ordenados = (usersList || []).filter(u => u.ativo !== false).slice().sort((a, b) => hierNivel(a.cargo) - hierNivel(b.cargo) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  const ordenados = (usersList || []).filter(u => u.ativo !== false).slice().sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
   box.innerHTML = `<div class="hier-teste"><b>Modo de teste</b> — entrar direto como:
     <select id="hierTesteSel" onchange="hierEntrarComo(this.value)">
       <option value="">Escolha uma pessoa...</option>
-      ${ordenados.map(u => `<option value="${u.id}">${esc(u.cargo || 'Consultor')} — ${esc(u.nome)}</option>`).join('')}
+      ${ordenados.map(u => `<option value="${u.id}">${esc(hierCargosTexto(u))} — ${esc(u.nome)}</option>`).join('')}
     </select></div>`;
 }
 function hierEntrarComo(userId){
@@ -4851,7 +4906,7 @@ function updateUserInterface(){
   const nameEl = document.getElementById('currentUserName');
   const roleEl = document.getElementById('currentUserRole');
   if(nameEl) nameEl.textContent = name;
-  if(roleEl) roleEl.textContent = `Cargo: ${currentUser.cargo || 'Consultor'}`;
+  if(roleEl) roleEl.textContent = `Cargo: ${MODO_HIERARQUIA ? hierCargosTexto(currentUser) : (currentUser.cargo || 'Consultor')}`;
   
   const avatarEl = document.getElementById('sidebarAvatar');
   const cfgAvatarEl = document.getElementById('configAvatarPreview');
@@ -7555,7 +7610,7 @@ function renderUsers(){
 
   if (!currentUser) return;
   hierRenderLojas();
-  userTableEl.innerHTML = equipeVisivel().filter(hierNaLoja).sort((a, b) => hierNivel(a.cargo) - hierNivel(b.cargo) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(u => {
+  userTableEl.innerHTML = equipeVisivel().filter(hierNaLoja).sort((a, b) => hierMelhorNivel(a) - hierMelhorNivel(b) || (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(u => {
     const superior = getSuperiorUser(u.superiorId);
     const subordinates = getDirectSubordinates(u.id);
     const abaixoDeMim = hierEstaAcima(currentUser.id, u.id);
@@ -7565,7 +7620,7 @@ function renderUsers(){
     const foto = avatarSrc(u);
     let acoes;
     if (podeGerenciar && abaixoDeMim) {
-      acoes = `<button class="tc-btn" onclick="hierEditarMembro('${u.id}')">Editar</button><button class="tc-btn" onclick="openPermissionsModal('${u.id}')">Meta e senha</button><button class="tc-btn" onclick="openPromoteModal('${u.id}')">Cargo</button>` +
+      acoes = `<button class="tc-btn" onclick="hierEditarMembro('${u.id}')">Editar</button><button class="tc-btn" onclick="openPermissionsModal('${u.id}')">Meta e senha</button>` +
         (inativo ? `<button class="tc-btn" onclick="hierReativarUsuario('${u.id}')">Reativar</button>` : `<button class="tc-btn perigo" onclick="hierDesativarUsuario('${u.id}')">Desativar</button>`);
     } else if (u.id === currentUser.id) {
       acoes = `<button class="tc-btn" onclick="show('configuracoes', document.querySelector('.nav button[onclick*=configuracoes]'))">Meus dados</button>`;
@@ -7577,7 +7632,6 @@ function renderUsers(){
         <td>${hierFoto(u, 26)}<b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.tel || '-')}</td>
-        <td>${esc(u.cargo || 'Consultor')}</td>
         <td>${esc(hierTextoVinculos(u)) || '<span class="tc-sub">Topo</span>'}</td>
         <td>${subordinates.length || '<span class="tc-sub">-</span>'}</td>
         <td>${subordinates.length ? 'A equipe' : 'Só o próprio'}</td>
@@ -7877,16 +7931,16 @@ function openNewUserModal(){
     <div class="field"><label>Senha de Acesso</label><input type="password" id="nuPass" value="123456"></div>
     <div class="field"><label>Data de Nascimento</label><input type="date" id="nuNasc"></div>
     <div class="field"><label>Cargo / Função</label>
-      <select id="nuCargo">${ROLES.filter(r => hierNivel(r) > hierNivel(currentUser.cargo)).map(r=>`<option value="${r}" ${r==='Consultor'?'selected':''}>${r}</option>`).join('')}</select>
+      <select id="nuCargo">${ROLES.filter(r => hierNivel(r) > hierMelhorNivel(currentUser)).map(r=>`<option value="${r}" ${r==='Consultor'?'selected':''}>${r}</option>`).join('')}</select>
     </div>
     <div class="field"><label>👑 Líder direto</label>
       <select id="nuSuperior">
-        ${equipeVisivelAtiva().filter(u => hierPodeLiderar(u.cargo)).map(u=>`<option value="${u.id}" ${u.id===currentUser.id?'selected':''}>${esc(u.nome)} (${esc(u.cargo)})</option>`).join('')}
+        ${equipeVisivelAtiva().filter(u => hierLideraAlgo(u)).map(u=>`<option value="${u.id}" ${u.id===currentUser.id?'selected':''}>${esc(u.nome)} (${esc(hierCargosTexto(u))})</option>`).join('')}
       </select>
       <small class="muted">A pessoa entra na equipe de quem você escolher aqui (você ou alguém abaixo de você).</small>
     </div>
     <div class="field"><label>🏬 Loja onde vai trabalhar</label><select id="nuLoja">${hierOpcoesLoja(hierLojaPrincipal(currentUser))}</select>
-      <small class="muted">Se a pessoa atuar em mais de uma loja, ou tiver outro líder, acrescente depois em "Editar".</small></div>
+      <small class="muted">Se a pessoa atuar em mais de uma loja, com outro cargo ou outro líder, acrescente depois em "Editar".</small></div>
     <button class="btn primary" id="btnSaveUserModal" onclick="saveNewUser()">Cadastrar no CRM</button>
   `);
 }
@@ -7902,9 +7956,11 @@ function saveNewUser(){
   const isGest = MODO_HIERARQUIA ? false : isManagerRole(cargo);
   if (MODO_HIERARQUIA) {
     const lider = hierUsuario(superiorId);
-    if (!hierPodeLiderar(currentUser.cargo)) return alert('Só quem lidera uma equipe pode cadastrar membros.');
+    if (!hierLideraAlgo(currentUser)) return alert('Só quem lidera uma equipe pode cadastrar membros.');
     if (!lider || !(lider.id === currentUser.id || hierEstaAcima(currentUser.id, lider.id))) return alert('Escolha como líder você mesmo ou alguém da sua equipe.');
-    if (hierNivel(lider.cargo) >= hierNivel(cargo)) return alert(`O líder (${lider.cargo}) precisa ter cargo acima de ${cargo}.`);
+    const lojaNovo = document.getElementById('nuLoja')?.value || '';
+    const cargoLider = hierCargoNaLoja(lider, lojaNovo);
+    if (hierNivel(cargoLider) >= hierNivel(cargo)) return alert(`Nessa loja, ${lider.nome} é ${cargoLider}: o líder precisa ter cargo acima de ${cargo}.`);
   }
 
   limparValidacaoForm();
@@ -7931,7 +7987,7 @@ function saveNewUser(){
     canViewAllAgenda: isGest
   });
 
-  if (MODO_HIERARQUIA) { const novo = usersList[usersList.length - 1]; hierGravarVinculos(novo, [{ loja: novo.loja || '', liderId: novo.superiorId }]); }
+  if (MODO_HIERARQUIA) { const novo = usersList[usersList.length - 1]; hierGravarVinculos(novo, [{ loja: novo.loja || '', liderId: novo.superiorId, cargo: novo.cargo }]); }
   save(); closeModal();
   alert(`Membro ${nome} cadastrado com sucesso!`);
 }
@@ -10564,7 +10620,7 @@ function renderDashboard(){
       tc += uLeads; tm += uMeets; tvq += uSales.length; tvv += uSalesSum;
       return `<tr>
         <td>${hierFoto(u, 24)}<b>${esc(u.nome)}</b></td>
-        <td><span class="badge b-purple">${esc(u.cargo)}</span></td>
+        <td>${MODO_HIERARQUIA ? esc(hierCargosTexto(u)) : `<span class="badge b-purple">${esc(u.cargo)}</span>`}</td>
         <td>${MODO_HIERARQUIA ? (esc(hierNomesLideres(u)) || '<span class="muted">Topo</span>') : (sup ? `<span class="badge b-blue">👑 ${esc(sup.nome)}</span>` : '<span class="badge b-gray">Topo</span>')}</td>
         <td>${MODO_HIERARQUIA && u.id !== currentUser.id ? '<span class="muted" title="Leads são particulares de cada pessoa">🔒</span>' : `<b>${uLeads}</b>`}</td>
         <td>${MODO_HIERARQUIA && u.id !== currentUser.id ? '<span class="muted" title="A agenda é particular de cada pessoa">🔒</span>' : `<b>${uMeets}</b>`}</td>
@@ -14323,7 +14379,7 @@ function salvarNovoConsultor() {
   const pix = document.getElementById('ncPix')?.value.trim() || '';
 
   if (!nome) return alert('Informe o nome do consultor.');
-  if (MODO_HIERARQUIA && !hierPodeLiderar(currentUser.cargo)) return alert('Só quem lidera uma equipe pode cadastrar consultores.');
+  if (MODO_HIERARQUIA && !hierLideraAlgo(currentUser)) return alert('Só quem lidera uma equipe pode cadastrar consultores.');
   if (usersList.some(u => u.nome.toLowerCase() === nome.toLowerCase())) {
     return alert('Já existe um consultor com esse nome.');
   }
@@ -14492,7 +14548,7 @@ function renderVendasConsultores() {
       <div style="display:flex;flex-wrap:wrap;gap:24px;font-size:13px;align-items:center">
         ${hierFoto(consultorObj || { nome: consultorSel }, 44)}
         <div><b>Consultor:</b> ${esc(consultorSel || '-')}</div>
-        <div><b>Cargo:</b> ${esc(consultorObj?.cargo || '-')}</div>
+        <div><b>Cargo:</b> ${esc(consultorObj ? hierCargosTexto(consultorObj) : '-')}</div>
         <div><b>E-mail:</b> ${esc(consultorObj?.email || '-')}</div>
         <div><b>Telefone:</b> ${esc(consultorObj?.tel || '-')}</div>
       </div>`;
@@ -14841,7 +14897,7 @@ renderSemaforo = function() {
     <tr>
       <td><b>${idx + 1}º</b></td>
       <td><span class="tc-ponto ${item.semaforoClass}"></span>${hierFoto(item.userObj || { nome: item.nome }, 24)}<b>${esc(item.nome)}</b></td>
-      <td>${esc(cargoTxt)}</td>
+      <td>${esc(hierCargosTexto(item.userObj) || cargoTxt)}</td>
       <td>${esc(hierNomesLideres(item.userObj)) || '<span class="tc-sub">Topo</span>'}</td>
       <td>${esc(hierNomesLojas(item.userObj)) || '<span class="tc-sub">-</span>'}</td>
       <td>${item.count}</td>
