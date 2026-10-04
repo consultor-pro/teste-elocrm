@@ -547,6 +547,29 @@ body.arrastando-info, body.arrastando-info * { cursor: grabbing !important; user
   overflow: hidden;
 }
 .event-item:hover { filter: brightness(0.97); }
+/* --- Tabelas compactas e neutras (Leads, Semáforo, Equipe) --- */
+.tabela-compacta th, .tabela-compacta td { padding: 5px 10px; font-size: 12.5px; line-height: 1.35; white-space: nowrap; vertical-align: middle; color: #1e293b; }
+.tabela-compacta th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #64748b; font-weight: 700; padding: 8px 10px; }
+.tabela-compacta td b { font-weight: 650; }
+.tc-link { cursor: pointer; }
+.tc-link:hover { text-decoration: underline; }
+.tc-sub { color: #94a3b8; font-size: 11.5px; font-weight: 400; }
+.tc-tag { display: inline-block; padding: 1px 7px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; }
+.tc-aviso { margin-left: 8px; color: #92400e; font-size: 11px; font-weight: 600; }
+.tc-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; border: 0 !important; box-shadow: none; vertical-align: 1px; }
+.tc-num { font-variant-numeric: tabular-nums; font-weight: 650; text-align: right !important; }
+.tc-avatar { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; margin-right: 8px; overflow: hidden; vertical-align: middle; }
+.tc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.tc-btn { padding: 2px 9px; font-size: 11.5px; font-weight: 600; font-family: inherit; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 5px; cursor: pointer; margin-right: 5px; line-height: 1.5; }
+.tc-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.tc-btn.forte { border-color: #334155; color: #0f172a; }
+.tc-btn.perigo:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+[data-theme="dark"] .tabela-compacta td { color: #e6edf3; }
+[data-theme="dark"] .tc-tag { background: #161b22; border-color: #30363d; color: #c9d1d9; }
+[data-theme="dark"] .tc-btn { background: #0d1117; border-color: #30363d; color: #c9d1d9; }
+[data-theme="dark"] .tc-btn:hover { background: #161b22; }
+[data-theme="dark"] .tc-btn.forte { border-color: #8b949e; color: #e6edf3; }
+[data-theme="dark"] .tc-avatar { background: #30363d; color: #c9d1d9; }
 /* --- Modo hierarquia: aceite de vendas --- */
 .hier-cont { background: var(--red); color: #fff; border-radius: 99px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; margin-left: 6px; }
 .hier-faixa { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 11px 16px; border-radius: 12px; margin-bottom: 12px; font-size: 13.5px; border: 1px solid var(--line); background: #fff; }
@@ -1170,7 +1193,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
       <input style="max-width:180px" id="leadSearch" placeholder="Buscar nome, telefone, tag..." oninput="renderLeads()">
     </div>
   </div>
-  <div style="overflow-x:auto"><table><thead><tr><th>Lead</th><th>Contato</th><th>Nascimento</th><th>Origem</th><th>Responsável / Criador</th><th>Lead Score</th><th>Visibilidade</th><th>Etapa</th><th>Comentários</th><th>Ações</th></tr></thead><tbody id="leadTable"></tbody></table></div>
+  <div style="overflow-x:auto"><table class="tabela-compacta"><thead><tr><th>Lead</th><th>Contato</th><th>Nascimento</th><th>Origem</th><th>Score</th><th>Etapa</th><th>Notas</th><th>Ações</th></tr></thead><tbody id="leadTable"></tbody></table></div>
  </div>
  </div>
  <div id="leadsIndicadoresSubaba" class="card" style="display:none">
@@ -1387,17 +1410,17 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
 
   <div class="card">
     <div style="overflow-x:auto">
-      <table>
+      <table class="tabela-compacta">
         <thead>
           <tr>
-            <th>Posição Ranking</th>
+            <th>Pos.</th>
             <th>Consultor</th>
             <th>Cargo</th>
             <th>Líder</th>
-            <th id="semaforoCotasHeader">Cotas no Período</th>
-            <th id="semaforoVolumeHeader">Volume Vendido (R$)</th>
-            <th>Status Semáforo</th>
-            <th>Classificação & Diagnóstico</th>
+            <th id="semaforoCotasHeader">Vendas</th>
+            <th id="semaforoVolumeHeader" style="text-align:right">Volume (R$)</th>
+            <th>Status</th>
+            <th>Diagnóstico</th>
           </tr>
         </thead>
         <tbody id="semaforoTableBody"></tbody>
@@ -2007,18 +2030,16 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
     <div id="addUserBtnContainer"></div>
   </div>
   <div style="overflow-x:auto">
-    <table>
+    <table class="tabela-compacta">
       <thead>
         <tr>
           <th>Membro</th>
-          <th>Usuário / E-mail</th>
-          <th>WhatsApp Cadastrado</th>
-          <th>Cargo / Classe</th>
-          <th>Líder / Superior</th>
-          <th>Subordinados</th>
-          <th>Dashboard</th>
-          <th>Mapa Cotas</th>
-          <th>Comissões</th>
+          <th>Usuário</th>
+          <th>WhatsApp</th>
+          <th>Cargo</th>
+          <th>Líder direto</th>
+          <th>Liderados</th>
+          <th>Enxerga</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -3759,6 +3780,37 @@ function hierReativarUsuario(userId){
   const u = hierUsuario(userId);
   if (!u || !hierEstaAcima(currentUser.id, u.id)) return;
   u.ativo = true; save(); renderAll(); showToast(`${u.nome} foi reativado(a).`);
+}
+
+// ---------- editar os dados de quem está abaixo de mim ----------
+function hierEditarMembro(userId){
+  const u = hierUsuario(userId);
+  if (!u || !hierEstaAcima(currentUser.id, u.id)) return alert('Só quem está acima desta pessoa pode alterar o cadastro dela.');
+  openModal(`
+    <div class="between"><h2 style="margin:0">Editar cadastro</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <p class="muted" style="font-size:13px;margin:6px 0 12px">${esc(u.cargo || 'Consultor')} · se o nome mudar, as vendas, os leads e a agenda dessa pessoa acompanham o nome novo.</p>
+    <div class="field"><label>Nome completo</label><input id="hmNome" value="${esc(u.nome || '')}"></div>
+    <div class="field"><label>Usuário ou e-mail de acesso</label><input id="hmEmail" value="${esc(u.email || '')}"></div>
+    <div class="field"><label>WhatsApp com DDD</label><input id="hmTel" value="${esc(u.tel || '')}"></div>
+    <div class="field"><label>Data de nascimento (aparece em Aniversariantes)</label><input type="date" id="hmNasc" value="${esc(u.nasc || '')}"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn primary" onclick="hierSalvarMembro('${u.id}')">Salvar</button></div>`);
+}
+function hierSalvarMembro(userId){
+  const u = hierUsuario(userId);
+  if (!u || !hierEstaAcima(currentUser.id, u.id)) return;
+  const nome = (document.getElementById('hmNome')?.value || '').trim();
+  const email = (document.getElementById('hmEmail')?.value || '').trim().toLowerCase();
+  const tel = (document.getElementById('hmTel')?.value || '').replace(/\D/g, '');
+  const nasc = document.getElementById('hmNasc')?.value || '';
+  if (!nome) return alert('Informe o nome.');
+  if (!email) return alert('Informe o usuário ou e-mail de acesso.');
+  if (usersList.some(x => x.id !== u.id && (x.nome || '').trim().toLowerCase() === nome.toLowerCase())) return alert('Já existe outra pessoa com esse nome. Use um nome diferente (ex: com sobrenome).');
+  if (usersList.some(x => x.id !== u.id && (x.email || '').toLowerCase() === email)) return alert('Esse usuário/e-mail já está em uso por outra pessoa.');
+  const nomeAntigo = u.nome;
+  u.nome = nome; u.email = email; u.tel = tel; u.nasc = nasc;
+  if (nomeAntigo !== nome && typeof cascatearRenomeacaoResponsavel === 'function') cascatearRenomeacaoResponsavel(nomeAntigo, nome);
+  save(); closeModal(); renderAll();
+  showToast('Cadastro atualizado.');
 }
 
 // ---------- cópia de teste: atalho "entrar como" na tela de login ----------
@@ -6066,14 +6118,15 @@ function renderComissoes(){
             <div style="min-width:240px;background:#f5f3ff;border:2px solid var(--purple);border-radius:10px;padding:12px;text-align:center;box-shadow:0 2px 6px rgba(124,58,237,0.15)">
               <div style="font-size:11px;font-weight:800;color:var(--purple);text-transform:uppercase">🎯 Mês Filtrado</div>
               <b style="color:#1e293b;font-size:14px">${m.label}</b>
-              <div style="font-size:18px;font-weight:900;color:var(--purple);margin:6px 0">${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+              <div style="font-size:20px;font-weight:900;color:var(--green);margin:6px 0 0" title="Valor líquido já recebido, após imposto">${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+              <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">Líquido recebido</div>
               <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;border-top:1px solid #ddd6fe;padding-top:6px">
                 <span style="color:var(--green)">Recebido: ${m.received.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
                 <span style="color:var(--blue)">Pendente: ${mPendente.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;border-top:1px solid #ddd6fe;padding-top:6px;margin-top:4px">
                 <span style="color:#b91c1c" title="Imposto sobre o valor já recebido (parcelas marcadas como pagas)">Imposto: ${mImposto.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
-                <span style="color:var(--green)" title="Valor líquido já recebido, após imposto">Líquido Recebido: ${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
+                <span style="color:var(--purple)" title="Comissão prevista para o mês (bruta)">Previsto: ${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
               </div>
             </div>`;
         }).join('');
@@ -6098,11 +6151,12 @@ function renderComissoes(){
           <div id="monthCard-${k}" style="min-width:170px;${estiloCard};border-radius:10px;padding:10px;text-align:center;flex-shrink:0">
             ${ehMesAtual ? '<div style="font-size:9.5px;font-weight:800;color:var(--blue);text-transform:uppercase;margin-bottom:2px">📍 Mês Atual</div>' : ''}
             <small style="color:var(--muted);font-weight:700">${m.label}</small>
-            <div style="font-size:15px;font-weight:800;color:var(--purple);margin:4px 0">${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+            <div style="font-size:16px;font-weight:900;color:var(--green);margin:4px 0 0" title="Valor líquido já recebido, após imposto">${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+            <div style="font-size:9px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px">Líquido recebido</div>
             <div style="font-size:10.5px;color:var(--green);font-weight:700">Rec: ${m.received.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
             <div style="font-size:10px;color:var(--blue);font-weight:600">A rec: ${mPendente.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
             <div style="font-size:10px;color:#b91c1c;font-weight:600;border-top:1px dashed #e2e8f0;margin-top:4px;padding-top:3px" title="Imposto sobre o valor já recebido">Imposto: ${mImposto.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
-            <div style="font-size:10px;color:var(--green);font-weight:700" title="Valor líquido já recebido, após imposto">Líq. Recebido: ${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+            <div style="font-size:10px;color:var(--purple);font-weight:700" title="Comissão prevista para o mês (bruta)">Previsto: ${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
           </div>`;
       }).join('') || '<p class="muted">Nenhuma projeção futura para o período.</p>';
 
@@ -6659,8 +6713,8 @@ function renderSemaforo(){
     periodLabelText = 'Todo o Histórico';
   }
 
-  document.getElementById('semaforoCotasHeader').textContent = `Cotas (${periodLabelText})`;
-  document.getElementById('semaforoVolumeHeader').textContent = `Volume (R$) (${periodLabelText})`;
+  document.getElementById('semaforoCotasHeader').textContent = 'Vendas';
+  document.getElementById('semaforoVolumeHeader').textContent = 'Volume (R$)';
 
   let targetUsers = canSeeGlobal ? [...usersList] : usersList.filter(u => subIds.includes(u.id));
   const userMetrics = targetUsers.map(u => {
@@ -7121,30 +7175,26 @@ function renderUsers(){
     const inativo = u.ativo === false;
     const visao = subordinates.length ? '<span class="badge b-green">Equipe</span>' : '<span class="badge b-gray">Próprio</span>';
 
+    const foto = avatarSrc(u);
+    let acoes;
+    if (podeGerenciar && abaixoDeMim) {
+      acoes = `<button class="tc-btn" onclick="hierEditarMembro('${u.id}')">Editar</button><button class="tc-btn" onclick="openPermissionsModal('${u.id}')">Líder e meta</button><button class="tc-btn" onclick="openPromoteModal('${u.id}')">Cargo</button>` +
+        (inativo ? `<button class="tc-btn" onclick="hierReativarUsuario('${u.id}')">Reativar</button>` : `<button class="tc-btn perigo" onclick="hierDesativarUsuario('${u.id}')">Desativar</button>`);
+    } else if (u.id === currentUser.id) {
+      acoes = `<button class="tc-btn" onclick="show('configuracoes', document.querySelector('.nav button[onclick*=configuracoes]'))">Meus dados</button>`;
+    } else {
+      acoes = '<span class="tc-sub">Acesso restrito</span>';
+    }
     return `
-      <tr>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="user-avatar" style="width:28px;height:28px;font-size:11px">${avatarSrc(u)?`<img src="${avatarSrc(u)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`:esc(u.nome.charAt(0))}</div>
-            <b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="badge b-gray">você</span>' : ''}${inativo ? ' <span class="badge b-red">Desativado</span>' : ''}
-          </div>
-        </td>
-        <td><b>${esc(u.email)}</b></td>
-        <td><b>${esc(u.tel||'Não cadastrado')}</b></td>
-        <td><span class="badge b-purple">${esc(u.cargo||'Consultor')}</span></td>
-        <td>${superior ? `<span class="badge b-blue">👑 Líder: ${esc(superior.nome)}</span>` : '<span class="badge b-gray">Topo</span>'}</td>
-        <td>${subordinates.length > 0 ? `<span class="badge b-green">👥 ${subordinates.length}</span>` : '<span class="muted">-</span>'}</td>
-        <td>${visao}</td>
-        <td>${visao}</td>
-        <td>${visao}</td>
-        <td>
-          ${podeGerenciar && abaixoDeMim ? `
-            <div class="row">
-              <button class="btn blue" onclick="openPermissionsModal('${u.id}')">Líder e meta</button>
-              <button class="btn purple" onclick="openPromoteModal('${u.id}')">Cargo</button>
-              ${inativo ? `<button class="btn" onclick="hierReativarUsuario('${u.id}')">Reativar</button>` : `<button class="btn danger" onclick="hierDesativarUsuario('${u.id}')">Desativar</button>`}
-            </div>` : `<small class="muted">${u.id === currentUser.id ? 'Quem altera é o seu líder' : 'Acesso restrito'}</small>`}
-        </td>
+      <tr${inativo ? ' style="opacity:.55"' : ''}>
+        <td><span class="tc-avatar">${foto ? `<img src="${foto}">` : esc((u.nome || '?').charAt(0).toUpperCase())}</span><b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.tel || '-')}</td>
+        <td>${esc(u.cargo || 'Consultor')}</td>
+        <td>${superior ? esc(superior.nome) : '<span class="tc-sub">Topo</span>'}</td>
+        <td>${subordinates.length || '<span class="tc-sub">-</span>'}</td>
+        <td>${subordinates.length ? 'A equipe' : 'Só o próprio'}</td>
+        <td>${acoes}</td>
       </tr>`;
   }).join('');
 }
@@ -7868,23 +7918,17 @@ function renderLeads(){
     const tagsHtml = (l.tags && l.tags.length) ? `<div style="margin-top:3px">${l.tags.map(t=>`<span class="badge b-gray" style="margin:0 3px 3px 0;font-size:10px">${esc(t)}</span>`).join('')}</div>` : '';
     const proximaAcao = sugerirProximaAcaoLead(l);
 
+    const corScore = l.scoreCategory === 'Quente' ? '#dc2626' : (l.scoreCategory === 'Frio' ? '#3b82f6' : '#d97706');
+    const tagsLinha = (l.tags && l.tags.length) ? ' ' + l.tags.map(t=>`<span class="tc-tag">${esc(t)}</span>`).join(' ') : '';
     return `<tr>
-      <td><b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="openLead('${l.id}')">${esc(l.nome)}</b>${(l.origem==='Indicação' && l.indicador) ? ` <span class="muted" style="font-size:11px">(ind ${esc(l.indicador)})</span>` : ''}<br><small style="color:var(--muted)">${esc(l.cidade||'-')}</small>${tagsHtml}</td>
+      <td><b class="tc-link" title="Abrir cadastro do cliente" onclick="openLead('${l.id}')">${esc(l.nome)}</b><span class="tc-sub"> · ${esc(l.cidade||'-')}${(l.origem==='Indicação' && l.indicador) ? ` · ind. ${esc(l.indicador)}` : ''}</span>${tagsLinha}</td>
       <td>${esc(l.tel||'-')}${linkWhatsAppTel(l.tel)}</td>
-      <td>${l.nasc ? new Date(l.nasc+'T00:00:00').toLocaleDateString('pt-BR') : '-'}</td>
-      <td><span class="badge b-purple">${esc(l.origem||'Indicação')}</span></td>
-      <td><span class="badge b-blue" style="cursor:pointer" title="Abrir cadastro do vendedor" onclick="abrirCadastroVendedor('${esc(l.responsavel||'')}')">👤 ${esc(l.responsavel||'Geral')}</span></td>
-      <td>${scoreBadge}</td>
-      <td>${visibilityBtn}</td>
-      <td><span class="badge b-purple">${esc(l.stage||'Prospecção')}</span>${proximaAcao ? `<br><span class="badge b-gold" style="margin-top:4px;font-size:10px" title="Próxima ação sugerida">${esc(proximaAcao)}</span>` : ''}</td>
-      <td><button class="btn" onclick="openLeadCommentsModal('${l.id}')">💬 Notas (${comCount})</button></td>
-      <td>
-        <div class="row">
-          <button class="btn gold" onclick="openSaleModal('${l.id}')">💰 Venda</button>
-          <button class="btn" onclick="openLead('${l.id}')">Editar</button>
-          ${isOwner ? `<button class="btn danger" onclick="deleteLead('${l.id}')">✕</button>` : ''}
-        </div>
-      </td>
+      <td>${l.nasc ? new Date(l.nasc+'T00:00:00').toLocaleDateString('pt-BR') : '<span class="tc-sub">-</span>'}</td>
+      <td>${esc(l.origem||'Indicação')}</td>
+      <td><span class="tc-ponto" style="background:${corScore}"></span>${esc(l.scoreCategory||'Morno')}</td>
+      <td><span class="tc-tag">${esc(l.stage||'Prospecção')}</span>${proximaAcao ? `<span class="tc-aviso" title="Próxima ação sugerida">${esc(proximaAcao)}</span>` : ''}</td>
+      <td><button class="tc-btn" onclick="openLeadCommentsModal('${l.id}')">Notas (${comCount})</button></td>
+      <td><button class="tc-btn forte" onclick="openSaleModal('${l.id}')">Venda</button><button class="tc-btn" onclick="openLead('${l.id}')">Editar</button>${isOwner ? `<button class="tc-btn perigo" onclick="deleteLead('${l.id}')">Excluir</button>` : ''}</td>
     </tr>`;
   }).join('');
 
@@ -14166,9 +14210,10 @@ function renderVendasConsultores() {
       return `
         <div style="min-width:170px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;flex-shrink:0">
           <small style="color:var(--muted);font-weight:700">${m.label}</small>
-          <div style="font-size:15px;font-weight:800;color:var(--purple);margin:4px 0">${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+          <div style="font-size:16px;font-weight:900;color:var(--green);margin:4px 0 0" title="Comissão líquida do mês, após imposto">${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+          <div style="font-size:9px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.03em">Líquido</div>
           <div style="font-size:10px;color:#b91c1c;font-weight:600;border-top:1px dashed #e2e8f0;margin-top:4px;padding-top:3px">Imposto: ${mImposto.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
-          <div style="font-size:10px;color:var(--green);font-weight:700">Líquido: ${mLiquido.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
+          <div style="font-size:10px;color:var(--purple);font-weight:700" title="Comissão prevista para o mês (bruta)">Previsto: ${m.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
         </div>`;
     }).join('') || '<p class="muted">Nenhuma projeção mensal para este consultor/segmento.</p>';
   }
@@ -14395,22 +14440,17 @@ renderSemaforo = function() {
   const listaFiltrada = listaRanking.filter(item => statusFilter === 'all' || item.statusKey === statusFilter);
 
   tbody.innerHTML = listaFiltrada.map((item, idx) => {
-    let medal = `<b>${idx + 1}º Lugar</b>`;
-    if(idx === 0 && item.vol > 0) medal = `🥇 <b style="color:#d97706">1º Lugar</b>`;
-    else if(idx === 1 && item.vol > 0) medal = `🥈 <b style="color:#64748b">2º Lugar</b>`;
-    else if(idx === 2 && item.vol > 0) medal = `🥉 <b style="color:#b45309">3º Lugar</b>`;
     const cargoTxt = item.userObj?.cargo || 'Consultor';
-    const liderHtml = item.superiorUser ? `<span class="badge b-blue">👑 ${esc(item.superiorUser.nome)}</span>` : '<span class="badge b-gray">Topo</span>';
     return `
     <tr>
-      <td>${medal}</td>
-      <td><div style="display:flex;align-items:center;gap:10px"><span class="semaforo-dot ${item.semaforoClass}"></span><b>${esc(item.nome)}</b></div></td>
-      <td><span class="badge b-purple">${esc(cargoTxt)}</span></td>
-      <td>${liderHtml}</td>
-      <td><b>${item.count} venda(s)</b></td>
-      <td style="font-weight:700;color:var(--green)">${item.vol.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-      <td><span class="badge ${item.badgeClass}">${item.statusText}</span></td>
-      <td class="muted">${item.diag}</td>
+      <td><b>${idx + 1}º</b></td>
+      <td><span class="tc-ponto ${item.semaforoClass}"></span><b>${esc(item.nome)}</b></td>
+      <td>${esc(cargoTxt)}</td>
+      <td>${item.superiorUser ? esc(item.superiorUser.nome) : '<span class="tc-sub">Topo</span>'}</td>
+      <td>${item.count}</td>
+      <td class="tc-num">${item.vol.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
+      <td>${esc(item.statusText.replace(/^\S+\s/, ''))}</td>
+      <td class="tc-sub">${item.diag}</td>
     </tr>
   `;
   }).join('') || (listaRanking.length > 0
@@ -14642,6 +14682,10 @@ function cascatearRenomeacaoResponsavel(nomeAntigo, nomeNovo) {
   if (!nomeAntigo || !nomeNovo || nomeAntigo === nomeNovo) return 0;
   let total = 0;
   (db.sales || []).forEach(s => { if (s.responsavel === nomeAntigo) { s.responsavel = nomeNovo; total++; } });
+  (db.vendasEnviadas || []).forEach(e => {
+    if (e.sale && e.sale.responsavel === nomeAntigo) { e.sale.responsavel = nomeNovo; total++; }
+    if (e.vendedorNome === nomeAntigo) e.vendedorNome = nomeNovo;
+  });
   (db.leads || []).forEach(l => {
     if (l.responsavel === nomeAntigo) { l.responsavel = nomeNovo; total++; }
     if (l.createdByName === nomeAntigo) l.createdByName = nomeNovo;
