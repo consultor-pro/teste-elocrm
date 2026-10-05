@@ -575,6 +575,34 @@ body.arrastando-info, body.arrastando-info * { cursor: grabbing !important; user
 [data-theme="dark"] .tc-avatar { background: #30363d; color: #c9d1d9; }
 /* --- Modo hierarquia: lojas e vínculos --- */
 .hier-faixa.loja { border-color: var(--line); background: #fff; padding: 8px 16px; }
+.hier-busca, .hier-busca-linha { width: auto; max-width: 190px; min-width: 130px; padding: 10px; font-size: 14px; margin: 0; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; }
+.hier-busca:focus, .hier-busca-linha:focus { outline: 2px solid #cbd5e1; border-color: #475569; }
+.field .hier-busca { width: 100%; max-width: none; margin: 4px 0 2px; }
+.hier-vinc .hier-busca { flex: 0 1 140px; min-width: 110px; padding: 5px 8px; font-size: 12.5px; }
+.hier-teste .hier-busca { width: 100%; max-width: none; margin-top: 8px; }
+.hier-busca-conta { font-size: 11.5px; color: #94a3b8; }
+#hierBuscaLista { position: fixed; z-index: 9000; display: none; background: #fff; color: #0f172a; border: 1px solid #94a3b8; border-radius: 8px; box-shadow: 0 12px 28px rgba(15,23,42,.22); overflow-y: auto; font-size: 13px; text-align: left; }
+#hierBuscaLista .hbl-item { padding: 7px 11px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #f1f5f9; }
+#hierBuscaLista .hbl-item.ativo, #hierBuscaLista .hbl-item:hover { background: #e2e8f0; }
+#hierBuscaLista .hbl-nota { padding: 7px 11px; color: #64748b; font-size: 12px; }
+.hier-barra-equipe { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 8px; }
+.hier-barra-equipe select { width: auto; max-width: 210px; padding: 7px 10px; font-size: 13px; margin: 0; }
+#hierBuscaEquipe { max-width: 320px; flex: 1 1 220px; padding: 7px 10px; font-size: 13px; }
+@media (max-width: 720px) {
+  /* no celular cada pessoa vira um cartão: nome, botões e dados um embaixo do outro, sem arrastar para o lado */
+  #usuarios .tabela-compacta thead { display: none; }
+  #usuarios .tabela-compacta, #userTable { display: block; width: 100%; }
+  #userTable tr { display: block; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  #userTable td { display: block; white-space: normal; padding: 2px 4px; border: 0; }
+  #userTable td[data-rot]::before { content: attr(data-rot); color: #94a3b8; font-size: 11px; margin-right: 5px; }
+  #userTable .tc-vinc { min-width: 0; max-width: none; }
+  #userTable .tc-btn { padding: 5px 11px; margin-top: 3px; }
+}
+.tc-vinc { white-space: normal; min-width: 220px; max-width: 460px; line-height: 1.45; }
+[data-theme="dark"] .hier-busca, [data-theme="dark"] .hier-busca-linha { background: #0d1117; border-color: #30363d; color: #e6edf3; }
+[data-theme="dark"] #hierBuscaLista { background: #161b22; color: #e6edf3; border-color: #30363d; }
+[data-theme="dark"] #hierBuscaLista .hbl-item { border-color: #21262d; }
+[data-theme="dark"] #hierBuscaLista .hbl-item.ativo, [data-theme="dark"] #hierBuscaLista .hbl-item:hover { background: #30363d; }
 .hier-linha-equipe { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: 12.5px; color: #334155; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; white-space: normal; }
 .hier-lojas { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px; }
 .hier-lojas-titulo { margin-bottom: 8px; white-space: normal; }
@@ -1099,7 +1127,8 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
   <div class="card" id="cardRankingConsultores" style="margin-bottom:16px;display:none">
     <div class="between" style="margin-bottom:12px">
       <h2>🏆 Ranking de Consultores</h2>
-      <span class="badge b-gold">Volume vendido no período</span>
+      <div class="row"><input id="hierBuscaRank" type="text" class="hier-busca-linha" placeholder="🔎 Buscar nome..." oninput="hierFiltrar('rank', true)" autocomplete="off"><span id="hierBuscaRankConta" class="hier-busca-conta"></span>
+      <span class="badge b-gold">Volume vendido no período</span></div>
     </div>
     <div id="rankingConsultoresList"></div>
   </div>
@@ -1107,7 +1136,8 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
   <div class="card" id="cardMemberPerformance" style="margin-bottom:16px">
     <div class="between" style="margin-bottom:12px">
       <h2 id="perfCardTitle">Desempenho por Membro / Equipe Subordinada</h2>
-      <span class="badge b-purple">Projeção & Metas</span>
+      <div class="row"><input id="hierBuscaDash" type="text" class="hier-busca-linha" placeholder="🔎 Buscar nome..." oninput="hierFiltrar('dash', true)" autocomplete="off"><span id="hierBuscaDashConta" class="hier-busca-conta"></span>
+      <span class="badge b-purple">Projeção & Metas</span></div>
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -1397,6 +1427,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
         <small class="muted" id="semaforoPeriodNotice">Critérios de Avaliação Dinâmicos por Período.</small>
       </div>
       <div class="row">
+        <input id="hierBuscaSemaforo" type="text" class="hier-busca-linha" placeholder="🔎 Buscar nome..." oninput="hierDepois('semaforo', renderSemaforo)" autocomplete="off">
         <label style="font-size:12px;font-weight:700">Período:</label>
         <select id="semaforoPeriodType" onchange="onSemaforoPeriodChange()" style="max-width:190px">
           <option value="week" selected>Semana</option>
@@ -1964,6 +1995,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
         <small class="muted">Datas comemorativas da sua equipe e carteira de clientes.</small>
       </div>
       <div class="row">
+        <input id="hierBuscaNiver" type="text" class="hier-busca-linha" placeholder="🔎 Buscar nome..." oninput="hierFiltrar('niver', true)" autocomplete="off"><span id="hierBuscaNiverConta" class="hier-busca-conta"></span>
         <label style="font-size:12px;font-weight:700">Filtrar Categoria:</label>
         <select id="niverTypeFilter" onchange="renderBirthdays()" style="max-width:210px">
           <option value="all">Todos (Equipe e Meus Clientes / Liderados)</option>
@@ -2050,20 +2082,20 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
   </div>
   <div style="overflow-x:auto">
     <div id="hierLojasCard"></div>
-    <div class="row" style="gap:10px;align-items:center;margin-bottom:8px">
-      <input id="hierBuscaEquipe" placeholder="Buscar pessoa pelo nome..." oninput="renderUsers()" style="max-width:280px;padding:6px 10px;font-size:13px;margin:0">
+    <div class="hier-barra-equipe">
+      <input id="hierBuscaEquipe" type="text" class="hier-busca-linha" placeholder="🔎 Buscar pessoa pelo nome ou usuário..." oninput="hierDepois('equipe', renderUsers)" autocomplete="off">
+      <select id="hierCargoEquipe" onchange="renderUsers()" title="Filtrar por cargo"><option value="">Todos os cargos</option></select>
       <span id="hierContaEquipe" class="tc-sub"></span>
     </div>
     <table class="tabela-compacta">
       <thead>
         <tr>
           <th>Membro</th>
-          <th>Usuário</th>
-          <th>WhatsApp</th>
+          <th>Ações</th>
           <th>Loja · cargo › líder direto</th>
           <th>Liderados</th>
-          <th>Enxerga</th>
-          <th>Ações</th>
+          <th>Usuário</th>
+          <th>WhatsApp</th>
         </tr>
       </thead>
       <tbody id="userTable"></tbody>
@@ -3852,6 +3884,7 @@ function abrirAceiteVendas(){
   openModal(`
     <div class="between"><h2 style="margin:0">Aceite de Vendas</h2><button class="btn" onclick="closeModal()">✕</button></div>
     <p class="muted" style="font-size:13px;margin:6px 0 14px">A venda de um liderado só entra em Consultores & Vendas, Semáforo, Mapa de Cotas e Dashboard depois que o líder direto dele naquela loja aceita.</p>
+    ${paraMim.length + minhas.length > 3 ? `<div class="row" style="margin-bottom:12px"><input id="hierBuscaAceite" type="text" class="hier-busca-linha" style="max-width:300px;flex:1" placeholder="🔎 Buscar consultor ou cliente..." oninput="hierFiltrar('aceite', true)" autocomplete="off"><span id="hierBuscaAceiteConta" class="hier-busca-conta"></span></div>` : ''}
     ${lidero ? `<h3 style="margin:0 0 8px;font-size:15px">Para eu conferir (${paraMim.length})</h3>
       <div id="hierListaConferir" style="max-height:38vh;overflow-y:auto;margin-bottom:16px">
         ${paraMim.map(e => hierCartaoVenda(e, 'conferir')).join('') || '<p class="muted" style="font-size:13px">Nenhuma venda da sua equipe aguardando aceite.</p>'}
@@ -4085,6 +4118,153 @@ function hierRemoverFotoMembro(userId){
   const prev = document.getElementById('hmFotoPrev'); if (prev) prev.innerHTML = hierFoto(u, 56);
 }
 
+// ---------- BUSCA POR NOME ----------
+function hierNorm(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+// Todas as palavras digitadas precisam aparecer no texto, em qualquer ordem e sem ligar para acento ("joao silva" acha "João Pedro da Silva")
+function hierCasa(texto, busca){ const t = hierNorm(texto); return hierNorm(busca).split(/\s+/).filter(Boolean).every(pal => t.includes(pal)); }
+const __hierEspera = {};
+function hierDepois(chave, fn){ clearTimeout(__hierEspera[chave]); __hierEspera[chave] = setTimeout(fn, 220); }
+
+// 1) Campo "Buscar nome..." ao lado de qualquer lista de pessoas grande: digita, escolhe na lista que abre, e a tela filtra.
+const HIER_BUSCA_SELECTS = ['dashFilterConsultor', 'cotaFilterConsultor', 'comissaoFilterUser', 'vcConsultorSelect', 'vcNomeSelect', 'importAtribuirPara', 'hierTesteSel', 'nuSuperior'];
+const HIER_BUSCA_MIN = 12;   // só aparece quando a lista tem mais nomes do que isso
+const HIER_BUSCA_MAX = 40;   // nomes mostrados de cada vez
+function hierBuscaLigar(sel){
+  if (!sel) return;
+  let inp = sel.previousElementSibling;
+  if (!inp || !inp.classList || !inp.classList.contains('hier-busca')) {
+    inp = document.createElement('input'); inp.type = 'text'; inp.className = 'hier-busca'; inp.placeholder = '🔎 Buscar nome...'; inp.autocomplete = 'off';
+    inp.setAttribute('aria-label', 'Buscar pessoa pelo nome');
+    inp.addEventListener('input', () => hierBuscaMostrar(inp));
+    inp.addEventListener('focus', () => hierBuscaMostrar(inp));
+    inp.addEventListener('blur', () => setTimeout(hierBuscaFechar, 200));
+    inp.addEventListener('keydown', ev => hierBuscaTecla(ev));
+    sel.insertAdjacentElement('beforebegin', inp);
+  }
+  const mostrar = sel.options.length > HIER_BUSCA_MIN && sel.style.display !== 'none';
+  if ((inp.style.display !== 'none') !== mostrar) inp.style.display = mostrar ? '' : 'none';
+}
+function hierBuscaFechar(){ const cx = document.getElementById('hierBuscaLista'); if (cx) { cx.style.display = 'none'; cx.__ops = null; } }
+function hierBuscaMostrar(inp){
+  const sel = inp.nextElementSibling; const q = inp.value.trim();
+  if (!q || !sel || sel.tagName !== 'SELECT') return hierBuscaFechar();
+  let cx = document.getElementById('hierBuscaLista');
+  if (!cx) {
+    cx = document.createElement('div'); cx.id = 'hierBuscaLista'; document.body.appendChild(cx);
+    cx.addEventListener('pointerdown', ev => { const it = ev.target.closest('.hbl-item'); if (!it) return; ev.preventDefault(); hierBuscaEscolher(Number(it.dataset.i)); });
+  }
+  const qn = hierNorm(q);
+  const todas = [...sel.options].filter(o => o.value !== '' && hierCasa(o.textContent, q));
+  todas.sort((a, b) => (hierNorm(b.textContent).startsWith(qn) ? 1 : 0) - (hierNorm(a.textContent).startsWith(qn) ? 1 : 0));
+  const lista = todas.slice(0, HIER_BUSCA_MAX);
+  cx.__inp = inp; cx.__ops = lista.map(o => o.value); cx.__i = 0;
+  cx.innerHTML = lista.length
+    ? lista.map((o, i) => `<div class="hbl-item${i === 0 ? ' ativo' : ''}" data-i="${i}">${esc(o.textContent)}</div>`).join('') +
+      (todas.length > HIER_BUSCA_MAX ? `<div class="hbl-nota">Mais ${todas.length - HIER_BUSCA_MAX} nome(s). Digite mais letras para afinar.</div>` : '')
+    : '<div class="hbl-nota">Nenhum nome encontrado.</div>';
+  const r = inp.getBoundingClientRect();
+  const larg = Math.min(Math.max(r.width, 300), window.innerWidth - 16);
+  cx.style.width = larg + 'px';
+  cx.style.left = Math.max(8, Math.min(r.left, window.innerWidth - larg - 8)) + 'px';
+  const espacoAbaixo = window.innerHeight - r.bottom - 12;
+  if (espacoAbaixo >= 160 || espacoAbaixo >= r.top) { cx.style.top = (r.bottom + 4) + 'px'; cx.style.bottom = 'auto'; cx.style.maxHeight = Math.max(120, Math.min(340, espacoAbaixo)) + 'px'; }
+  else { cx.style.top = 'auto'; cx.style.bottom = (window.innerHeight - r.top + 4) + 'px'; cx.style.maxHeight = Math.max(120, Math.min(340, r.top - 12)) + 'px'; }
+  cx.style.display = 'block'; cx.scrollTop = 0;
+}
+function hierBuscaEscolher(i){
+  const cx = document.getElementById('hierBuscaLista');
+  if (!cx || !cx.__ops || cx.__ops[i] === undefined) return;
+  const inp = cx.__inp, sel = inp && inp.nextElementSibling, valor = cx.__ops[i];
+  hierBuscaFechar();
+  if (!sel) return;
+  inp.value = ''; inp.blur();
+  sel.value = valor;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function hierBuscaTecla(ev){
+  const cx = document.getElementById('hierBuscaLista');
+  const aberta = cx && cx.style.display === 'block' && cx.__ops && cx.__ops.length;
+  if (ev.key === 'Escape') { ev.target.value = ''; hierBuscaFechar(); return; }
+  if (!aberta) return;
+  if (ev.key === 'Enter') { ev.preventDefault(); hierBuscaEscolher(cx.__i || 0); return; }
+  if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+  ev.preventDefault();
+  const itens = cx.querySelectorAll('.hbl-item');
+  cx.__i = Math.max(0, Math.min(itens.length - 1, (cx.__i || 0) + (ev.key === 'ArrowDown' ? 1 : -1)));
+  itens.forEach((el, i) => el.classList.toggle('ativo', i === cx.__i));
+  itens[cx.__i].scrollIntoView({ block: 'nearest' });
+}
+window.addEventListener('scroll', ev => { const cx = document.getElementById('hierBuscaLista'); if (cx && ev.target !== cx && !(cx.contains && ev.target.nodeType === 1 && cx.contains(ev.target))) hierBuscaFechar(); }, true);
+window.addEventListener('resize', hierBuscaFechar);
+
+// 2) Busca que esconde as linhas que não batem (tabelas e listas já desenhadas)
+const HIER_FILTROS = {
+  dash:   { inp: 'hierBuscaDash',   caixa: ['memberPerformanceTable'], linha: 'tr', alvo: 'td' },
+  rank:   { inp: 'hierBuscaRank',   caixa: ['rankingConsultoresList'], linha: '.ranking-row', alvo: '.ranking-info b' },
+  niver:  { inp: 'hierBuscaNiver',  caixa: ['birthdaysTable'], linha: 'tr', alvo: 'td' },
+  aceite: { inp: 'hierBuscaAceite', caixa: ['hierListaConferir', 'hierListaMinhas'], linha: '.hier-card', alvo: null }
+};
+function hierFiltrar(chave, forcar){
+  const f = HIER_FILTROS[chave]; const inp = f && document.getElementById(f.inp);
+  if (!inp) return;
+  const q = inp.value.trim(); let total = 0, visiveis = 0, mexeu = false;
+  f.caixa.forEach(idCaixa => {
+    const cx = document.getElementById(idCaixa); const marca = cx && cx.firstElementChild;
+    if (!marca) return;
+    if (!forcar && marca.__hf === q) return;   // a lista não foi redesenhada desde a última vez
+    marca.__hf = q; mexeu = true;
+    [...cx.children].filter(l => l.matches(f.linha)).forEach(l => {
+      const alvo = f.alvo ? l.querySelector(f.alvo) : l;
+      if (f.alvo && l.children.length === 1) { l.style.display = ''; return; }   // linha de aviso ("sem dados")
+      const ok = !q || hierCasa(alvo ? alvo.textContent : '', q);
+      l.style.display = ok ? '' : 'none'; total++; if (ok) visiveis++;
+    });
+  });
+  const conta = document.getElementById(f.inp + 'Conta');
+  if (conta && mexeu) conta.textContent = q ? `${visiveis} de ${total}` : '';
+}
+
+// 3) Liga tudo sozinho: sempre que uma tela é redesenhada, confere se as buscas estão no lugar
+let __hierBuscaPend = false;
+function hierBuscaVarrer(){
+  __hierBuscaPend = false;
+  HIER_BUSCA_SELECTS.forEach(id => hierBuscaLigar(document.getElementById(id)));
+  const cxVinc = document.getElementById('hmVinculos');   // líder direto, no "Editar" de um membro
+  if (cxVinc) cxVinc.querySelectorAll('select.hmVincLider').forEach(hierBuscaLigar);
+  Object.keys(HIER_FILTROS).forEach(k => hierFiltrar(k));
+}
+function hierBuscaAgendar(){ if (__hierBuscaPend) return; __hierBuscaPend = true; setTimeout(hierBuscaVarrer, 80); }
+(function hierBuscaIniciar(){
+  if (!document.body) return setTimeout(hierBuscaIniciar, 60);
+  new MutationObserver(hierBuscaAgendar).observe(document.body, { childList: true, subtree: true });
+  hierBuscaAgendar();
+})();
+
+// ---------- EQUIPE: lojas e cargos resumidos ----------
+function hierLinhaVinculo(v){
+  const lider = (hierUsuario(v.liderId) || {}).nome;
+  return esc([hierLojaNome(v.loja), v.cargo].filter(Boolean).join(' · ')) + (lider ? ' › ' + esc(lider) : '');
+}
+function hierResumoVinculos(u){
+  const vs = hierVinculos(u);
+  if (!vs.length) return '<span class="tc-sub">Topo</span>';
+  if (vs.length <= 2) return vs.map(hierLinhaVinculo).join('<br>');
+  const porCargo = new Map();
+  vs.forEach(v => porCargo.set(v.cargo || 'Sem cargo', (porCargo.get(v.cargo || 'Sem cargo') || 0) + 1));
+  return [...porCargo].map(([c, n]) => `${esc(c)} em ${n} loja${n > 1 ? 's' : ''}`).join(' · ') +
+    ` <button class="tc-btn" style="margin-left:6px" onclick="hierVerVinculos('${u.id}')">ver lojas</button>`;
+}
+function hierVerVinculos(userId){
+  const u = hierUsuario(userId);
+  if (!u) return;
+  openModal(`
+    <div class="between"><h2 style="margin:0">Lojas de ${esc(u.nome)}</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <div style="overflow-x:auto;margin-top:12px"><table class="tabela-compacta">
+      <thead><tr><th>Loja</th><th>Cargo nesta loja</th><th>Líder direto</th></tr></thead>
+      <tbody>${hierVinculos(u).map(v => `<tr><td><b>${esc(hierLojaNome(v.loja) || 'Sem loja')}</b></td><td>${esc(v.cargo || '-')}</td><td>${esc((hierUsuario(v.liderId) || {}).nome || '') || '<span class="tc-sub">Topo</span>'}</td></tr>`).join('')}</tbody>
+    </table></div>`);
+}
+
 // ---------- EQUIPES GRANDES ----------
 const HIER_MAX_LINHAS = 300; // linhas mostradas de uma vez nas tabelas de equipe (o resto aparece com a busca ou o filtro de loja)
 function hierNotaLimite(total, colunas, dica){
@@ -4117,11 +4297,14 @@ function hierRenderLojas(){
   const acima = hierCadeiaAcima(currentUser.id).map(id => (hierUsuario(id) || {}).nome).filter(Boolean);
   const abaixo = equipeVisivel().length - 1;
   const lojasVis = hierLojasVisiveis();
-  let html = `<div class="hier-linha-equipe"><span><b>Acima de você:</b> ${acima.length ? acima.map(esc).join(', ') : 'ninguém (você está no topo)'}</span><span><b>Abaixo de você:</b> ${abaixo} pessoa(s)${lojasVis.length ? ' · ' + lojasVis.map(l => esc(l.nome)).join(', ') : ''}</span></div>`;
+  let html = `<div class="hier-linha-equipe"><span><b>Acima de você:</b> ${acima.length ? acima.map(esc).join(', ') : 'ninguém (você está no topo)'}</span><span><b>Abaixo de você:</b> ${abaixo} pessoa(s)${lojasVis.length > 3 ? ' em ' + lojasVis.length + ' lojas' : (lojasVis.length ? ' · ' + lojasVis.map(l => esc(l.nome)).join(', ') : '')}</span></div>`;
   if (hierPodeGerirLojas()) {
     const qtd = id => (usersList || []).filter(u => hierLojasDe(u).includes(id) && u.ativo !== false).length;
-    html += `<div class="hier-lojas">
-      <div class="hier-lojas-titulo"><b>Lojas</b> <span class="tc-sub">Só você, que está no topo, cria e altera as lojas. Cada líder liga os liderados à loja e ao líder certos em "Editar".</span></div>
+    const muitasLojas = hierLojas().length > 6;
+    const lojasAbertas = !muitasLojas || window.__hierLojasAbertas;
+    html += `<div class="hier-lojas"${lojasAbertas ? '' : ' style="margin-bottom:10px;padding:7px 12px"'}>
+      <div class="hier-lojas-titulo"${lojasAbertas ? '' : ' style="margin-bottom:0"'}><b>Lojas (${hierLojas().length})</b> ${muitasLojas ? `<button class="tc-btn" style="margin:0 6px" onclick="window.__hierLojasAbertas = !window.__hierLojasAbertas; hierRenderLojas()">${lojasAbertas ? 'ocultar' : 'mostrar lojas'}</button>` : ''}<span class="tc-sub">Só você, que está no topo, cria e altera as lojas. Cada líder liga os liderados à loja e ao líder certos em "Editar".</span></div>
+      <div style="${lojasAbertas ? '' : 'display:none'}">
       <div class="hier-lojas-lista">
         ${hierLojas().slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(l => `<span class="hier-loja-chip"><b>${esc(l.nome)}</b> <span class="tc-sub">${qtd(l.id)} pessoa(s)</span>
           <a onclick="hierAbrirLoja('${l.id}')">renomear</a><a onclick="hierExcluirLoja('${l.id}')">excluir</a></span>`).join('') || '<span class="tc-sub">Nenhuma loja cadastrada ainda.</span>'}
@@ -4130,6 +4313,7 @@ function hierRenderLojas(){
         <button class="tc-btn forte" onclick="hierAbrirLoja()">+ Nova loja</button>
         <span class="tc-sub" style="margin-left:8px">Minha loja principal:</span>
         <select style="max-width:220px;padding:4px 8px;font-size:12.5px" onchange="hierDefinirMinhaLoja(this.value)">${hierOpcoesLoja(hierLojaPrincipal(currentUser))}</select>
+      </div>
       </div>
     </div>`;
   }
@@ -7655,8 +7839,13 @@ function renderUsers(){
 
   if (!currentUser) return;
   hierRenderLojas();
-  const buscaEquipe = (document.getElementById('hierBuscaEquipe')?.value || '').trim().toLowerCase();
-  const pessoasEquipe = equipeVisivel().filter(u => hierNaLoja(u) && (!buscaEquipe || (u.nome || '').toLowerCase().includes(buscaEquipe)));
+  const buscaEquipe = (document.getElementById('hierBuscaEquipe')?.value || '').trim();
+  const selCargoEquipe = document.getElementById('hierCargoEquipe');
+  if (selCargoEquipe && selCargoEquipe.options.length <= 1) selCargoEquipe.innerHTML = '<option value="">Todos os cargos</option>' + HIER_CARGOS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const cargoEquipe = selCargoEquipe?.value || '';
+  const lojaEquipe = hierFiltroLoja();
+  const temCargo = u => hierVinculos(u).some(v => v.cargo === cargoEquipe && (lojaEquipe === 'all' || !lojaEquipe || v.loja === lojaEquipe)) || (!hierVinculos(u).length && u.cargo === cargoEquipe);
+  const pessoasEquipe = equipeVisivel().filter(u => hierNaLoja(u) && (!cargoEquipe || temCargo(u)) && (!buscaEquipe || hierCasa((u.nome || '') + ' ' + (u.email || ''), buscaEquipe)));
   const contaEquipe = document.getElementById('hierContaEquipe');
   if (contaEquipe) contaEquipe.textContent = pessoasEquipe.length + ' pessoa(s)';
   // quem lidera quem: conta uma vez só, em vez de varrer a lista inteira a cada linha
@@ -7667,7 +7856,6 @@ function renderUsers(){
     const subordinates = { length: lideradosDe.get(u.id) || 0 };
     const abaixoDeMim = hierEstaAcima(currentUser.id, u.id);
     const inativo = u.ativo === false;
-    const visao = subordinates.length ? '<span class="badge b-green">Equipe</span>' : '<span class="badge b-gray">Próprio</span>';
 
     const foto = avatarSrc(u);
     let acoes;
@@ -7682,14 +7870,14 @@ function renderUsers(){
     return `
       <tr${inativo ? ' style="opacity:.55"' : ''}>
         <td>${hierFoto(u, 26)}<b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
-        <td>${esc(u.email)}</td>
-        <td>${esc(u.tel || '-')}</td>
-        <td>${esc(hierTextoVinculos(u)) || '<span class="tc-sub">Topo</span>'}</td>
-        <td>${subordinates.length || '<span class="tc-sub">-</span>'}</td>
-        <td>${subordinates.length ? 'A equipe' : 'Só o próprio'}</td>
         <td>${acoes}</td>
+        <td class="tc-vinc">${hierResumoVinculos(u)}</td>
+        <td data-rot="Liderados:">${subordinates.length || '<span class="tc-sub">-</span>'}</td>
+        <td data-rot="Usuário:">${esc(u.email)}</td>
+        <td data-rot="WhatsApp:">${esc(u.tel || '-')}</td>
       </tr>`;
-  }).join('') + hierNotaLimite(pessoasEquipe.length, 7, 'Use a busca por nome ou o filtro "Ver loja" para achar as outras pessoas.');
+  }).join('') + hierNotaLimite(pessoasEquipe.length, 6, 'Use a busca por nome, o filtro de cargo ou o "Ver loja" para achar as outras pessoas.') +
+    (pessoasEquipe.length ? '' : '<tr><td colspan="6" class="tc-sub" style="text-align:center;padding:14px">Nenhuma pessoa encontrada com essa busca.</td></tr>');
 }
 
 // === EXPORTAR DADOS DE VENDEDOR / EQUIPE (pra desmembramento ou envio a um liderado) ===
@@ -14941,13 +15129,16 @@ renderSemaforo = function() {
   listaRanking.sort((a,b) => b.vol - a.vol || b.count - a.count);
   renderPodioSemaforo(listaRanking);
 
-  const listaFiltrada = listaRanking.filter(item => statusFilter === 'all' || item.statusKey === statusFilter);
+  const listaStatus = listaRanking.filter(item => statusFilter === 'all' || item.statusKey === statusFilter);
+  listaStatus.forEach((item, i) => { item.pos = i + 1; });   // a posição é a do ranking inteiro, mesmo com busca
+  const buscaSem = (document.getElementById('hierBuscaSemaforo')?.value || '').trim();
+  const listaFiltrada = buscaSem ? listaStatus.filter(item => hierCasa(item.nome, buscaSem)) : listaStatus;
 
   tbody.innerHTML = listaFiltrada.map((item, idx) => {
     const cargoTxt = item.userObj?.cargo || 'Consultor';
     return `
     <tr>
-      <td><b>${idx + 1}º</b></td>
+      <td><b>${item.pos}º</b></td>
       <td><span class="tc-ponto ${item.semaforoClass}"></span>${hierFoto(item.userObj || { nome: item.nome }, 24)}<b>${esc(item.nome)}</b></td>
       <td>${esc(hierCargosTexto(item.userObj) || cargoTxt)}</td>
       <td>${esc(hierNomesLideres(item.userObj)) || '<span class="tc-sub">Topo</span>'}</td>
@@ -14958,7 +15149,7 @@ renderSemaforo = function() {
       <td class="tc-sub">${item.diag}</td>
     </tr>
   `;
-  }).slice(0, HIER_MAX_LINHAS).join('') + hierNotaLimite(listaFiltrada.length, 9, 'O ranking mostra os primeiros colocados; use o filtro "Ver loja" para ver cada loja.') || (listaRanking.length > 0
+  }).slice(0, HIER_MAX_LINHAS).join('') + hierNotaLimite(listaFiltrada.length, 9, 'O ranking mostra os primeiros colocados; use a busca por nome ou o filtro "Ver loja" para achar as outras pessoas.') || (buscaSem ? '<tr><td colspan="9" class="tc-sub" style="text-align:center;padding:14px">Nenhum nome encontrado com essa busca.</td></tr>' : listaRanking.length > 0
     ? `<tr><td colspan="9"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
     : `<tr><td colspan="8"><div class="empty-state"><span class="emoji">👔</span>Nenhum consultor cadastrado ainda.<br><button class="btn primary" style="margin-top:10px" onclick="show('usuarios', null)">+ Cadastrar Consultor</button></div></td></tr>`);
 };
