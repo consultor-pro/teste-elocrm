@@ -935,6 +935,75 @@ table:not(.excel-table) td .user-avatar { width: 22px !important; height: 22px !
 .podio-p3 { order: 3; min-height: 205px; align-self: flex-end; background: linear-gradient(160deg,#d71920,#b91c1c); box-shadow: 0 8px 18px rgba(215,25,32,.3); }
 .podio-vazio { visibility: hidden; }
 @media (max-width: 640px) { .podio-slot { width: 44%; } }
+
+/* ---------- Semáforo: tudo dentro da tela ---------- */
+.sm-filtro { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sm-filtro select, .sm-filtro input { margin: 0; }
+.sm-legenda { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+.sm-legenda b { color: var(--text, #1e293b); font-weight: 650; margin-right: 4px; }
+[data-theme="dark"] .sm-legenda b { color: #e6edf3; }
+.sm-rolagem { overflow-x: auto; }
+/* colunas com largura em % da tela: a tabela sempre cabe, e o que não couber num campo termina em "..." */
+#semaforoTabela { width: 100%; table-layout: fixed; }
+#semaforoTabela th, #semaforoTabela td { overflow: hidden; text-overflow: ellipsis; }
+#semaforoTabela th:nth-child(1) { width: 5%; }
+#semaforoTabela th:nth-child(2) { width: 21%; }
+#semaforoTabela th:nth-child(3) { width: 6%; }
+#semaforoTabela th:nth-child(4) { width: 12%; }
+#semaforoTabela th:nth-child(5) { width: 10%; }
+#semaforoTabela th:nth-child(6) { width: 14%; }
+#semaforoTabela th:nth-child(7) { width: 14%; }
+#semaforoTabela th:nth-child(8) { width: 18%; }
+#semaforoTabela td.sm-vendas, #semaforoTabela td.sm-volume { overflow: visible; text-overflow: clip; }   /* número de venda nunca é cortado */
+#semaforoTabela td.sm-sec { color: #475569; }
+[data-theme="dark"] #semaforoTabela td.sm-sec { color: #a7b3c2; }
+#semaforoTabela td.sm-status { font-weight: 650; }
+#semaforoTabela td.sm-nome .tc-ponto { display: none; }   /* a bolinha de cor fica junto do status */
+.sm-cel { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+.sm-clique { cursor: pointer; }
+.sm-clique:hover { text-decoration: underline; }
+.sm-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-mais { flex: 0 0 auto; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; border-radius: 999px; padding: 0 7px; height: 19px; font-size: 11px; font-weight: 700; cursor: pointer; line-height: 1; }
+.sm-mais:hover { background: #e2e8f0; }
+.sm-mais.sm-lojas { padding: 0 9px; height: 21px; }
+[data-theme="dark"] .sm-mais { background: #1f2733; border-color: #3a4656; color: #d5dde8; }
+/* telas médias (notebook pequeno, tablet): sai a coluna Cargo, que continua aparecendo ao passar o mouse no nome */
+@media (max-width: 1180px) {
+  #semaforoTabela th:nth-child(6), #semaforoTabela td.sm-cargo { display: none; }
+  #semaforoTabela th, #semaforoTabela td { padding-left: 6px; padding-right: 6px; }
+  #semaforoTabela th { letter-spacing: 0; overflow: visible; text-overflow: clip; }
+  #semaforoTabela th:nth-child(1) { width: 7%; }
+  #semaforoTabela th:nth-child(2) { width: 25%; }
+  #semaforoTabela th:nth-child(3) { width: 9%; }
+  #semaforoTabela th:nth-child(4) { width: 17%; }
+  #semaforoTabela th:nth-child(5) { width: 13%; }
+  #semaforoTabela th:nth-child(7) { width: 13%; }
+  #semaforoTabela th:nth-child(8) { width: 16%; }
+}
+@media (max-width: 720px) {
+  .sm-topo { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  .sm-topo h2 { font-size: 19px; }
+  .sm-topo > .row { width: 100%; gap: 8px; }
+  .sm-topo #hierBuscaSemaforo { flex: 1 1 100%; max-width: none !important; margin: 0; }
+  .sm-filtro { flex: 1 1 46%; min-width: 0; flex-direction: column; align-items: stretch; gap: 2px; }
+  .sm-filtro select, .sm-filtro input { max-width: none !important; width: 100%; }
+  .sm-legenda { gap: 3px 12px; font-size: 11.5px; }
+  .sm-rolagem { overflow-x: visible; }
+  #semaforoTabela, #semaforoTabela tbody { display: block; width: 100%; }
+  #semaforoTabela td.sm-cargo { display: block; }
+  #semaforoTabela thead { display: none; }
+  #semaforoTabela tbody tr { display: grid; grid-template-columns: 36px repeat(12, minmax(0, 1fr)); gap: 2px 0; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  #semaforoTabela tbody td { display: block; padding: 0 !important; border: 0 !important; background: transparent !important; min-width: 0; max-width: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left !important; }
+  #semaforoTabela tbody td.sm-pos { grid-column: 1; grid-row: 1 / span 3; align-self: start; font-size: 13px; padding-top: 3px !important; }
+  #semaforoTabela tbody td.sm-nome { grid-column: 2 / -1; font-size: 13.5px; }
+  #semaforoTabela tbody td.sm-vendas { grid-column: 2 / span 3; }
+  #semaforoTabela tbody td.sm-vendas::before { content: 'Vendas '; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+  #semaforoTabela tbody td.sm-volume { grid-column: 5 / span 5; font-weight: 650; }
+  #semaforoTabela tbody td.sm-status { grid-column: 10 / span 4; }
+  #semaforoTabela tbody td.sm-sec { grid-column: span 4; font-size: 11.5px; padding-right: 8px !important; }
+  #semaforoTabela tbody td.sm-sec .sm-cel { max-width: 100%; display: flex; }
+  #semaforoTabela tbody td[colspan] { grid-column: 1 / -1; grid-row: auto; white-space: normal; }
+}
 </style>
 </head>
 <body>
@@ -1497,33 +1566,33 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
 
 <section id="semaforo" class="page">
   <div class="card" style="margin-bottom:16px">
-    <div class="between">
+    <div class="between sm-topo">
       <div>
         <h2 style="margin:0" id="semaforoViewTitle">🚦 Semáforo & Ranking de Desempenho</h2>
         <small class="muted" id="semaforoPeriodNotice">Critérios de Avaliação Dinâmicos por Período.</small>
       </div>
       <div class="row">
         <input id="hierBuscaSemaforo" type="text" class="hier-busca-linha" placeholder="🔎 Buscar nome..." oninput="hierDepois('semaforo', renderSemaforo)" autocomplete="off">
-        <label style="font-size:12px;font-weight:700">Período:</label>
+        <span class="sm-filtro"><label style="font-size:12px;font-weight:700">Período:</label>
         <select id="semaforoPeriodType" onchange="onSemaforoPeriodChange()" style="max-width:190px">
           <option value="week" selected>Semana</option>
           <option value="day">Dia (Hoje / Data)</option>
           <option value="month">Mês</option>
           <option value="year">Ano</option>
           <option value="all">Todo o Período</option>
-        </select>
+        </select></span>
 
-        <label style="font-size:12px;font-weight:700" id="semaforoDateLabel">Data Referência:</label>
-        <input type="date" id="semaforoDateFilter" onchange="renderSemaforo()" style="max-width:150px">
+        <span class="sm-filtro"><label style="font-size:12px;font-weight:700" id="semaforoDateLabel">Data Referência:</label>
+        <input type="date" id="semaforoDateFilter" onchange="renderSemaforo()" style="max-width:150px"></span>
 
-        <label style="font-size:12px;font-weight:700">Status:</label>
+        <span class="sm-filtro"><label style="font-size:12px;font-weight:700">Status:</label>
         <select id="semaforoStatusFilter" onchange="renderSemaforo()" style="max-width:180px">
           <option value="all">Todos os Status</option>
           <option value="green">🟢 Apenas Verde</option>
           <option value="yellow">🟡 Apenas Amarelo</option>
           <option value="orange">🟠 Apenas Laranja</option>
           <option value="red">🔴 Apenas Vermelho</option>
-        </select>
+        </select></span>
       </div>
     </div>
   </div>
@@ -1534,19 +1603,24 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
   </div>
 
   <div class="card">
-    <div style="overflow-x:auto">
-      <table class="tabela-compacta">
+    <div class="sm-legenda">
+      <span><i class="tc-ponto s-green"></i><b>Verde</b> superando as metas</span>
+      <span><i class="tc-ponto s-yellow"></i><b>Amarelo</b> ritmo saudável</span>
+      <span><i class="tc-ponto s-orange"></i><b>Laranja</b> tração baixa, acelerar contatos</span>
+      <span><i class="tc-ponto s-red"></i><b>Vermelho</b> sem fechamentos no período</span>
+    </div>
+    <div class="sm-rolagem">
+      <table class="tabela-compacta" id="semaforoTabela">
         <thead>
           <tr>
             <th>Pos.</th>
             <th>Consultor</th>
+            <th id="semaforoCotasHeader" style="text-align:right">Vendas</th>
+            <th id="semaforoVolumeHeader" style="text-align:right">Volume (R$)</th>
+            <th>Status</th>
             <th>Cargo</th>
             <th>Líder</th>
             <th>Loja</th>
-            <th id="semaforoCotasHeader">Vendas</th>
-            <th id="semaforoVolumeHeader" style="text-align:right">Volume (R$)</th>
-            <th>Status</th>
-            <th>Diagnóstico</th>
           </tr>
         </thead>
         <tbody id="semaforoTableBody"></tbody>
@@ -15385,6 +15459,28 @@ function renderPodioSemaforo(lista){
 // além de db.sales, e mostra o Pódio do Período. Ela reaproveita a classificação por
 // cores (verde/amarelo/laranja/vermelho conforme cotas e volume no período) e os dados
 // reais de cargo/líder de cada usuário, em vez de um "Ativo/Sem Vendas" binário.)
+function smValor(v){
+  v = Number(v || 0);
+  const inteiro = Math.abs(v - Math.round(v)) < 0.005;
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: inteiro ? 0 : 2, maximumFractionDigits: inteiro ? 0 : 2 });
+}
+function smLista(u, qual){
+  if (!u) return '<span class="tc-sub">-</span>';
+  let nomes;
+  if (qual === 'lojas') {
+    nomes = hierLojasDe(u).map(hierLojaNome).filter(Boolean);
+    const f = (typeof hierFiltroLoja === 'function') ? hierFiltroLoja() : 'all';
+    const daVez = f !== 'all' ? hierLojaNome(f) : '';
+    if (daVez && nomes.includes(daVez)) nomes = [daVez].concat(nomes.filter(n => n !== daVez)); // loja escolhida no "Ver loja" vem primeiro
+  } else {
+    nomes = [...new Set(hierVinculos(u).map(v => (hierUsuario(v.liderId) || {}).nome).filter(Boolean))];
+  }
+  if (!nomes.length) return `<span class="tc-sub">${qual === 'lojas' ? '-' : 'Topo'}</span>`;
+  // mais de uma loja: só a quantidade; o clique abre a lista com todas
+  if (qual === 'lojas' && nomes.length > 1) return `<button class="sm-mais sm-lojas" onclick="hierVerVinculos('${u.id}')" title="${esc(nomes.join(', '))}">${nomes.length} lojas</button>`;
+  return `<span class="sm-cel"><span class="sm-txt sm-clique" onclick="hierVerVinculos('${u.id}')" title="${esc(nomes.join(', '))}">${esc(nomes[0])}</span>` +
+    (nomes.length > 1 ? `<button class="sm-mais" onclick="hierVerVinculos('${u.id}')" title="Ver ${qual === 'lojas' ? 'as ' + nomes.length + ' lojas' : 'os ' + nomes.length + ' líderes'}">+${nomes.length - 1}</button>` : '') + '</span>';
+}
 const semaforoOriginal = renderSemaforo;
 renderSemaforo = function() {
   garantirInterfaceCompleta();
@@ -15477,19 +15573,18 @@ renderSemaforo = function() {
     const cargoTxt = item.userObj?.cargo || 'Consultor';
     return `
     <tr>
-      <td><b>${item.pos}º</b></td>
-      <td><span class="tc-ponto ${item.semaforoClass}"></span>${hierFoto(item.userObj || { nome: item.nome }, 24)}<b>${esc(item.nome)}</b></td>
-      <td>${esc(hierCargosTexto(item.userObj) || cargoTxt)}</td>
-      <td>${esc(hierNomesLideres(item.userObj)) || '<span class="tc-sub">Topo</span>'}</td>
-      <td>${esc(hierNomesLojas(item.userObj)) || '<span class="tc-sub">-</span>'}</td>
-      <td>${item.count}</td>
-      <td class="tc-num">${item.vol.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-      <td>${esc(item.statusText.replace(/^\S+\s/, ''))}</td>
-      <td class="tc-sub">${item.diag}</td>
+      <td class="sm-pos"><b>${item.pos}º</b></td>
+      <td class="sm-nome" title="${esc(item.nome)} · ${esc(hierCargosTexto(item.userObj) || cargoTxt)}"><span class="tc-ponto ${item.semaforoClass}"></span>${hierFoto(item.userObj || { nome: item.nome }, 24)}<b>${esc(item.nome)}</b></td>
+      <td class="sm-vendas tc-num">${item.count}</td>
+      <td class="sm-volume tc-num" title="${item.vol.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}">${smValor(item.vol)}</td>
+      <td class="sm-status" title="${esc(item.diag)}"><span class="tc-ponto ${item.semaforoClass}"></span>${esc(item.statusText.replace(/^\S+\s/, ''))}</td>
+      <td class="sm-sec sm-cargo" title="${esc(hierCargosTexto(item.userObj) || cargoTxt)}">${esc(hierCargosTexto(item.userObj) || cargoTxt)}</td>
+      <td class="sm-sec">${smLista(item.userObj, 'lideres')}</td>
+      <td class="sm-sec">${smLista(item.userObj, 'lojas')}</td>
     </tr>
   `;
-  }).slice(0, HIER_MAX_LINHAS).join('') + hierNotaLimite(listaFiltrada.length, 9, 'O ranking mostra os primeiros colocados; use a busca por nome ou o filtro "Ver loja" para achar as outras pessoas.') || (buscaSem ? '<tr><td colspan="9" class="tc-sub" style="text-align:center;padding:14px">Nenhum nome encontrado com essa busca.</td></tr>' : listaRanking.length > 0
-    ? `<tr><td colspan="9"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
+  }).slice(0, HIER_MAX_LINHAS).join('') + hierNotaLimite(listaFiltrada.length, 8, 'O ranking mostra os primeiros colocados; use a busca por nome ou o filtro "Ver loja" para achar as outras pessoas.') || (buscaSem ? '<tr><td colspan="8" class="tc-sub" style="text-align:center;padding:14px">Nenhum nome encontrado com essa busca.</td></tr>' : listaRanking.length > 0
+    ? `<tr><td colspan="8"><div class="empty-state"><span class="emoji">🚦</span>Ninguém no status selecionado neste período.<br><button class="btn" style="margin-top:10px" onclick="document.getElementById('semaforoStatusFilter').value='all';renderSemaforo();">Limpar Filtro de Status</button></div></td></tr>`
     : `<tr><td colspan="8"><div class="empty-state"><span class="emoji">👔</span>Nenhum consultor cadastrado ainda.<br><button class="btn primary" style="margin-top:10px" onclick="show('usuarios', null)">+ Cadastrar Consultor</button></div></td></tr>`);
 };
 
