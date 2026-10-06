@@ -1135,6 +1135,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
     <div class="nav-section-label">VENDAS</div>
     <button class="active" onclick="show('dashboard',this)">🏠 Dashboard & Vendas</button>
     <button onclick="show('leads',this)">👥 Leads & Carteira</button>
+    <button id="btnNavProspeccao" onclick="show('prospeccao',this)">🔎 Prospecção</button>
     <button onclick="show('mapaCotas',this)">🔢 Mapa de Cotas</button>
     <button onclick="show('semaforo',this)">🚦 Semáforo & Ranking</button>
     <button onclick="show('agenda',this)">📅 Agenda Comercial</button>
@@ -1402,6 +1403,31 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
    </div>
    <div style="overflow-x:auto"><table><thead><tr><th>Indicador</th><th>Leads indicados</th><th>Ações</th></tr></thead><tbody id="indicadoresTable"></tbody></table></div>
  </div>
+</section>
+
+<section id="prospeccao" class="page">
+  <div class="card" style="margin-bottom:16px">
+    <div class="between" style="gap:10px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">🔎 Prospecção de empresas</h2>
+        <small class="muted">Busca no Google Maps pela conta oficial. Sua lista guarda o código de cada empresa, a situação e as suas anotações.</small>
+      </div>
+      <button class="btn" onclick="proAbrirChave()">Chave do Google</button>
+    </div>
+    <div class="tab-pills" style="margin-top:14px">
+      <button class="tab-pill active" data-sub="buscar" onclick="proTrocarSub('buscar')">Buscar</button>
+      <button class="tab-pill" data-sub="lista" onclick="proTrocarSub('lista')">Minha lista<i style="font-style:normal"></i></button>
+    </div>
+    <div id="proBusca" style="margin-top:12px">
+      <div class="pro-barra">
+        <div class="field"><label>O que você procura</label><input id="proOque" placeholder="Ex.: oficina diesel" onkeydown="if(event.key==='Enter') proBuscar()"></div>
+        <div class="field"><label>Onde (cidade, bairro ou região)</label><input id="proOnde" placeholder="Ex.: Ourinhos SP" onkeydown="if(event.key==='Enter') proBuscar()"></div>
+        <button class="btn primary" onclick="proBuscar()">Buscar</button>
+      </div>
+    </div>
+    <div id="proUso"></div>
+  </div>
+  <div class="card"><div id="proCorpo"></div></div>
 </section>
 
 <section id="mapaCotas" class="page">
@@ -5726,6 +5752,7 @@ const ICONS = {
   usuarios: '<path d="M12 2 20 5.5v5C20 16 16.9 19.8 12 21.5 7.1 19.8 4 16 4 10.5v-5Z"/>',
   consultoresVendas: '<rect x="4" y="5" width="16" height="15" rx="2"/><circle cx="12" cy="11" r="2.4"/><path d="M8.2 17c0-1.9 1.7-3 3.8-3s3.8 1.1 3.8 3"/>',
   configuracoes: '<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="18" r="2"/>',
+  prospeccao: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/><path d="M10.5 7.8v5.4M7.8 10.5h5.4"/>',
   apresentacoes: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><line x1="12" y1="16" x2="12" y2="19.5"/><line x1="8" y1="20" x2="16" y2="20"/><path d="M10.2 7.8v4.4l3.8-2.2z"/>',
   mais: '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.3" y1="15.3" x2="21" y2="21"/>',
@@ -5929,7 +5956,7 @@ const PAGE_TITLES = {
   materialApoio: 'Material de Apoio', informacoes: 'Informações & Arquivos', aniversarios: 'Aniversariantes',
   calculadora: 'Calculadora',
   agenda: 'Agenda Comercial', usuarios: 'Equipe & Hierarquia', configuracoes: 'Configurações',
-  consultoresVendas: 'Consultores & Vendas', indicesGrupo: 'INCC e INPC', apresentacoes: 'Apresentações'
+  consultoresVendas: 'Consultores & Vendas', indicesGrupo: 'INCC e INPC', apresentacoes: 'Apresentações', prospeccao: 'Prospecção'
 };
 
 // ================== BUSCA GLOBAL ==================
@@ -6378,6 +6405,7 @@ function abrirMenuMaisMobile(){
     { id: 'aniversarios', label: '🎂 Aniversariantes' },
     { id: 'materialApoio', label: '📚 Material de Apoio' },
   { id: 'apresentacoes', label: '🎞️ Apresentações' },
+  { id: 'prospeccao', label: '🔎 Prospecção' },
     { id: 'informacoes', label: '📢 Informações & Arquivos' },
     { id: 'usuarios', label: '🛡️ Equipe & Hierarquia' },
     { id: 'consultoresVendas', label: '👔 Consultores & Vendas' },
@@ -13786,6 +13814,7 @@ const MENU_ITENS_OCULTAVEIS = [
   { id: 'aniversarios', label: '🎂 Aniversariantes' },
   { id: 'materialApoio', label: '📚 Material de Apoio' },
   { id: 'apresentacoes', label: '🎞️ Apresentações' },
+  { id: 'prospeccao', label: '🔎 Prospecção' },
   { id: 'informacoes', label: '📢 Informações & Arquivos' },
   { id: 'usuarios', label: '🛡️ Equipe & Hierarquia' },
   { id: 'consultoresVendas', label: '👔 Consultores & Vendas' },
@@ -18185,6 +18214,347 @@ function leadsFiltrosLimpar(){
   renderParaHoje();
 })();
 
+</script>
+<style id="proEstilos">
+/* ---------- Prospecção (Google Maps) ---------- */
+.pro-barra { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.pro-barra .field { flex: 1 1 220px; margin: 0; }
+.pro-barra .field input { margin: 0; }
+.pro-uso { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); margin-top: 10px; align-items: center; }
+.pro-uso b { color: inherit; font-weight: 700; }
+.pro-uso .cheio { color: #b45309; font-weight: 700; }
+.pro-atrib { font-family: Roboto, Arial, sans-serif; font-weight: 400; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.pro-item { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.pro-item:last-child { border-bottom: 0; }
+.pro-nome { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-tel { font-weight: 700; white-space: nowrap; }
+.pro-tel a { color: inherit; text-decoration: none; }
+.pro-tel.sem { font-weight: 400; color: var(--muted); font-size: 12px; }
+.pro-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pro-acoes .btn { font-size: 12px; padding: 5px 9px; text-decoration: none; }
+.pro-meu { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pro-meu select { width: auto; margin: 0; padding: 5px 8px; font-size: 12.5px; }
+.pro-meu input { flex: 1 1 200px; margin: 0; padding: 6px 9px; font-size: 12.5px; }
+.pro-vazio { text-align: center; color: var(--muted); font-size: 13.5px; padding: 26px 10px; line-height: 1.6; }
+.pro-passos { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.65; }
+.pro-passos code { background: var(--line); padding: 1px 5px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+.pro-ficha { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; background: rgba(148,163,184,.08); }
+.pro-fila-nome { font-size: 19px; font-weight: 800; line-height: 1.25; }
+.pro-fila-tel { font-size: 17px; font-weight: 800; margin: 6px 0 2px; }
+.pro-fila-botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.pro-fila-botoes .btn { justify-content: center; text-decoration: none; }
+@media (max-width: 720px) {
+  .pro-item { grid-template-columns: minmax(0, 1fr); gap: 3px; padding: 10px 2px; }
+  .pro-nome, .pro-sub { white-space: normal; }
+  .pro-acoes { justify-content: flex-start; margin-top: 4px; }
+  .pro-barra .field { flex: 1 1 100%; }
+  .pro-barra > .btn { flex: 1 1 100%; justify-content: center; }
+}
+@media (max-width: 720px) { #prospeccao h2 { font-size: 19px; } }
+</style>
+<script id="proScript">
+// ====================== PROSPECÇÃO (Google Maps, pela API oficial) ======================
+// Regras do Google que este código respeita:
+//  - nome, telefone e endereço NÃO são gravados em lugar nenhum: só ficam na tela
+//    (e na memória da página enquanto ela está aberta);
+//  - o que fica guardado na lista é o código da empresa no Google (place ID),
+//    mais a situação e a anotação escritas por quem usa o CRM;
+//  - toda tela com dados do Google mostra o texto "Google Maps".
+// A chave do Google fica só neste aparelho (não vai para o backup nem para a nuvem).
+const PRO = { sub: 'buscar', resultados: [], proxima: null, consulta: '', carregando: false, erro: '', fichas: new Map(), mostrando: 20, soTel: false, filtro: 'todos' };
+const PRO_URL = 'https://places.googleapis.com/v1/';
+const PRO_CAMPOS = ['id', 'displayName', 'formattedAddress', 'nationalPhoneNumber', 'internationalPhoneNumber', 'websiteUri', 'googleMapsUri', 'primaryTypeDisplayName', 'businessStatus', 'rating', 'userRatingCount'];
+const PRO_GRATIS = { buscas: 1000, fichas: 1000 };   // cota grátis mensal do Google para buscas e fichas com telefone
+const PRO_STATUS = [['novo', 'A contatar'], ['contatado', 'Contatado'], ['retornar', 'Retornar'], ['sem', 'Sem interesse'], ['lead', 'Virou lead']];
+
+function proChave(){ try { return (localStorage.getItem(`crm_pro_chave_${EQUIPE_ID}`) || '').trim(); } catch (e) { return ''; } }
+function proMes(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function proUso(){
+  let u = null; try { u = JSON.parse(localStorage.getItem(`crm_pro_uso_${EQUIPE_ID}`)); } catch (e) {}
+  if (!u || u.mes !== proMes()) u = { mes: proMes(), buscas: 0, fichas: 0 };
+  return u;
+}
+function proContar(tipo, n){ const u = proUso(); u[tipo] += (n || 1); try { localStorage.setItem(`crm_pro_uso_${EQUIPE_ID}`, JSON.stringify(u)); } catch (e) {} }
+// Antes de cada consulta paga: confere se ainda está dentro do que é grátis no mês
+function proPodeGastar(tipo, n){
+  const u = proUso(), depois = u[tipo] + (n || 1);
+  if (depois <= PRO_GRATIS[tipo]) return true;
+  return confirm('Este aparelho já usou as ' + PRO_GRATIS[tipo].toLocaleString('pt-BR') + ' ' + (tipo === 'buscas' ? 'buscas' : 'fichas') + ' grátis do Google neste mês.\n\nContinuar pode gerar cobrança no cartão cadastrado no Google.\n\nOK = continuar mesmo assim\nCancelar = parar por aqui (recomendado)');
+}
+function proMinhaLista(){
+  if (!db.prospeccao || typeof db.prospeccao !== 'object') db.prospeccao = {};
+  const uid = currentUser ? currentUser.id : 'geral';
+  if (!Array.isArray(db.prospeccao[uid])) db.prospeccao[uid] = [];
+  return db.prospeccao[uid];
+}
+function proNaLista(id){ return proMinhaLista().find(x => x.id === id) || null; }
+function proNome(p){ return (p && p.displayName && p.displayName.text) || 'Sem nome'; }
+function proTipo(p){ return (p && p.primaryTypeDisplayName && p.primaryTypeDisplayName.text) || ''; }
+
+async function proChamar(caminho, opcoes){
+  const chave = proChave();
+  if (!chave) throw new Error('sem-chave');
+  let r;
+  try { r = await fetch(PRO_URL + caminho, Object.assign({}, opcoes, { headers: Object.assign({ 'X-Goog-Api-Key': chave }, opcoes.headers || {}) })); }
+  catch (e) { throw new Error('Não consegui falar com o Google. Confira a internet e tente de novo.'); }
+  let corpo = null; try { corpo = await r.json(); } catch (e) {}
+  if (!r.ok) {
+    const msg = (corpo && corpo.error && corpo.error.message) || '', st = (corpo && corpo.error && corpo.error.status) || '';
+    if (/API key not valid|API_KEY_INVALID/i.test(msg)) throw new Error('O Google não reconheceu a chave. Confira se ela foi copiada inteira.');
+    if (/referer|referrer|IP address|not authorized to use this API key/i.test(msg)) throw new Error('A chave não aceita este endereço. Nas restrições da chave, no Google, inclua o endereço deste CRM.');
+    if (/has not been used|is disabled|SERVICE_DISABLED|not enabled/i.test(msg)) throw new Error('A "Places API (New)" ainda não foi ativada no seu projeto do Google.');
+    if (/billing/i.test(msg)) throw new Error('O Google pede uma conta de faturamento (cartão) ativa no projeto, mesmo para usar só a parte grátis.');
+    if (r.status === 429 || st === 'RESOURCE_EXHAUSTED') throw new Error('O Google bloqueou por limite de uso. Se você colocou um teto de consultas, ele foi atingido.');
+    if (r.status === 404) throw new Error('nao-encontrada');
+    throw new Error('O Google respondeu com erro: ' + (msg || ('código ' + r.status)));
+  }
+  return corpo || {};
+}
+async function proBuscar(mais){
+  if (PRO.carregando) return;
+  const oque = (document.getElementById('proOque')?.value || '').trim(), onde = (document.getElementById('proOnde')?.value || '').trim();
+  if (!mais) {
+    if (oque.length < 3) { showToast('Escreva o tipo de empresa que você procura (ex.: oficina diesel).', 'warn'); return; }
+    PRO.consulta = oque + (onde ? ' em ' + onde : ''); PRO.resultados = []; PRO.proxima = null;
+    try { localStorage.setItem(`crm_pro_ultima_${EQUIPE_ID}`, JSON.stringify({ oque, onde })); } catch (e) {}
+  } else if (!PRO.proxima) return;
+  if (!proChave()) { proAbrirChave(); return; }
+  if (!proPodeGastar('buscas')) return;
+  PRO.carregando = true; PRO.erro = ''; proRender();
+  try {
+    const corpo = { textQuery: PRO.consulta, languageCode: 'pt-BR', regionCode: 'BR', pageSize: 20 };
+    if (mais) corpo.pageToken = PRO.proxima;
+    const d = await proChamar('places:searchText', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-FieldMask': PRO_CAMPOS.map(c => 'places.' + c).join(',') + ',nextPageToken' }, body: JSON.stringify(corpo) });
+    proContar('buscas');
+    (d.places || []).forEach(p => { if (p && p.id && !PRO.resultados.some(x => x.id === p.id)) { PRO.resultados.push(p); PRO.fichas.set(p.id, p); } });
+    PRO.proxima = d.nextPageToken || null;
+    if (!PRO.resultados.length) PRO.erro = 'O Google não encontrou nada com essa busca. Tente outras palavras ou outra cidade.';
+  } catch (e) {
+    if (e.message === 'sem-chave') proAbrirChave(); else PRO.erro = e.message;
+  }
+  PRO.carregando = false; proRender();
+}
+// Fichas da lista guardada: buscadas de novo no Google (20 por vez) e mantidas só enquanto a página está aberta
+async function proCarregarFichas(ids){
+  const faltam = ids.filter(id => !PRO.fichas.has(id));
+  if (!faltam.length || PRO.carregando) return;
+  if (!proChave()) return;
+  if (!proPodeGastar('fichas', faltam.length)) return;
+  PRO.carregando = true; proRender();
+  for (const id of faltam) {
+    try {
+      const p = await proChamar('places/' + encodeURIComponent(id) + '?languageCode=pt-BR&regionCode=BR', { method: 'GET', headers: { 'X-Goog-FieldMask': PRO_CAMPOS.join(',') } });
+      proContar('fichas'); PRO.fichas.set(id, p);
+    } catch (e) {
+      if (e.message === 'nao-encontrada') PRO.fichas.set(id, { id, sumiu: true });
+      else { PRO.erro = e.message; break; }
+    }
+  }
+  PRO.carregando = false; proRender();
+}
+function proGuardar(id){
+  const lista = proMinhaLista(), i = lista.findIndex(x => x.id === id);
+  if (i >= 0) lista.splice(i, 1); else lista.push({ id, quando: new Date().toISOString(), status: 'novo', nota: '' });
+  save(); proRender();
+}
+function proGuardarTodos(){
+  const lista = proMinhaLista(); let n = 0;
+  proVisiveis().forEach(p => { if (!lista.some(x => x.id === p.id)) { lista.push({ id: p.id, quando: new Date().toISOString(), status: 'novo', nota: '' }); n++; } });
+  if (n) save(); proRender(); showToast(n ? n + ' empresa(s) guardada(s) na sua lista.' : 'Essas empresas já estavam na sua lista.');
+}
+function proMudar(id, campo, valor){ const x = proNaLista(id); if (!x) return; x[campo] = valor; save(); if (campo === 'status') proRender(); }
+function proRemover(id){ if (!confirm('Tirar esta empresa da sua lista?')) return; const l = proMinhaLista(), i = l.findIndex(x => x.id === id); if (i >= 0) { l.splice(i, 1); save(); } proRender(); }
+function proVisiveis(){ return PRO.resultados.filter(p => !PRO.soTel || p.nationalPhoneNumber || p.internationalPhoneNumber); }
+
+// ---------- mensagem do WhatsApp ----------
+function proMsgPadrao(){ return 'Olá, tudo bem? Aqui é [Seu Nome]. Falo com o responsável pela [Empresa]?'; }
+function proMsgModelo(){ try { return localStorage.getItem(`crm_pro_msg_${EQUIPE_ID}`) || proMsgPadrao(); } catch (e) { return proMsgPadrao(); } }
+function proMsgPara(p, modelo){
+  const eu = (currentUser && currentUser.nome || '').split(' ').slice(0, 2).join(' ');
+  return String(modelo || proMsgModelo()).replace(/^\s*["“]|["”]\s*$/g, '').replace(/\[Seu Nome\]/gi, eu).replace(/\[Empresa\]/gi, proNome(p)).replace(/,?\s*\[Nome\]/gi, '');
+}
+function proZap(p, modelo){ return buildWhatsAppLink(p.internationalPhoneNumber || p.nationalPhoneNumber, proMsgPara(p, modelo)); }
+function proAbrirMensagem(){
+  const modelos = (db.scripts || []).map(s => `<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('');
+  openModal(`
+    <div class="between"><h2 style="margin:0">Mensagem do WhatsApp</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <p class="muted" style="font-size:13px;margin:8px 0">É o texto que já vai escrito quando você toca em "WhatsApp" numa empresa. <b>[Empresa]</b> vira o nome dela e <b>[Seu Nome]</b> vira o seu. Você confere e envia; o CRM não dispara nada sozinho.</p>
+    <div class="field"><label>Começar de um roteiro do Material de Apoio</label><select onchange="proMsgDoRoteiro(this.value)"><option value="">Escolha um segmento...</option>${modelos}</select></div>
+    <div class="field"><label>Texto</label><textarea id="proMsgTexto" rows="6">${esc(proMsgModelo())}</textarea></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="proMsgSalvar()">Salvar</button><button class="btn" onclick="document.getElementById('proMsgTexto').value = proMsgPadrao()">Voltar ao texto curto</button></div>`);
+}
+function proMsgDoRoteiro(id){ const s = (db.scripts || []).find(x => x.id === id); if (s) document.getElementById('proMsgTexto').value = String(s.script || '').replace(/^\s*["“]|["”]\s*$/g, ''); }
+function proMsgSalvar(){ try { localStorage.setItem(`crm_pro_msg_${EQUIPE_ID}`, document.getElementById('proMsgTexto').value.trim() || proMsgPadrao()); } catch (e) {} closeModal(); showToast('Mensagem salva.'); }
+
+// ---------- chave do Google ----------
+function proAbrirChave(){
+  const endereco = /^https?:$/.test(location.protocol) ? location.origin + '/*' : 'o endereço do seu CRM';
+  openModal(`
+    <div class="between"><h2 style="margin:0">Chave do Google Maps</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <p class="muted" style="font-size:13px;margin:8px 0">A busca usa a sua conta do Google. O Google dá 1.000 buscas e 1.000 fichas grátis por mês, mas pede um cartão cadastrado. A chave fica guardada só neste aparelho.</p>
+    <div class="field"><label>Cole aqui a sua chave</label><input id="proChaveCampo" value="${esc(proChave())}" placeholder="AIza..." autocomplete="off" spellcheck="false"></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="proSalvarChave()">Salvar chave</button>${proChave() ? '<button class="btn danger" onclick="proApagarChave()">Apagar chave deste aparelho</button>' : ''}</div>
+    <h3 style="margin:18px 0 0;font-size:14px">Como criar a chave (uma vez só)</h3>
+    <ol class="pro-passos">
+      <li>Entre em <b>console.cloud.google.com</b> com a sua conta Google e crie um projeto (ex.: "CRM Prospecção").</li>
+      <li>Em <b>Faturamento</b>, cadastre um cartão. Sem isso o Google não libera nem a parte grátis.</li>
+      <li>Em <b>APIs e serviços › Biblioteca</b>, procure <b>Places API (New)</b> e clique em <b>Ativar</b>.</li>
+      <li>Em <b>APIs e serviços › Credenciais</b>, clique em <b>Criar credenciais › Chave de API</b>.</li>
+      <li>Abra a chave criada e restrinja: em <b>Restrições de aplicativo</b> escolha <b>Sites</b> e inclua <code>${esc(endereco)}</code>; em <b>Restrições de API</b> escolha só <b>Places API (New)</b>.</li>
+      <li>Para nunca pagar nada: em <b>APIs e serviços › Places API (New) › Cotas</b>, limite as consultas por dia (ex.: 30 buscas e 30 fichas por dia ficam abaixo de 1.000 no mês).</li>
+      <li>Copie a chave e cole no campo acima.</li>
+    </ol>`);
+}
+function proSalvarChave(){
+  const v = (document.getElementById('proChaveCampo')?.value || '').trim();
+  if (v && !/^[A-Za-z0-9_\-]{20,}$/.test(v)) { alert('Isso não parece uma chave do Google. Ela costuma começar com "AIza" e não tem espaços.'); return; }
+  try { if (v) localStorage.setItem(`crm_pro_chave_${EQUIPE_ID}`, v); else localStorage.removeItem(`crm_pro_chave_${EQUIPE_ID}`); } catch (e) {}
+  PRO.erro = ''; closeModal(); proRender(); if (v) showToast('Chave salva neste aparelho.');
+}
+function proApagarChave(){ try { localStorage.removeItem(`crm_pro_chave_${EQUIPE_ID}`); } catch (e) {} closeModal(); proRender(); }
+
+// ---------- virar lead ----------
+// Abre o cadastro em branco com a ficha do Google ao lado, só para consulta:
+// o que for digitado é o que o consultor confirmou com a empresa.
+function proFichaHtml(p){
+  const tel = p.nationalPhoneNumber || p.internationalPhoneNumber || '';
+  return `<div class="pro-ficha"><div class="between" style="gap:8px"><b>${esc(proNome(p))}</b><span class="pro-atrib">Google Maps</span></div>
+    <div>${tel ? '📞 ' + esc(tel) : 'sem telefone no Google'}</div><div class="muted" style="font-size:12.5px">${esc(p.formattedAddress || '')}</div>
+    <div class="muted" style="font-size:11.5px;margin-top:4px">Ficha para consulta. Preencha abaixo com o que a empresa confirmar para você.</div></div>`;
+}
+function proVirarLead(id){
+  const p = PRO.fichas.get(id); if (!p || p.sumiu) return;
+  openLead();
+  const cx = document.getElementById('modalContent'), topo = cx && cx.querySelector('.between');
+  if (topo) topo.insertAdjacentHTML('afterend', proFichaHtml(p));
+  const x = proNaLista(id); if (x && x.status !== 'lead') { x.status = 'lead'; save(); }
+}
+
+// ---------- fila de contato ----------
+function proFilaAbrir(){
+  const fila = proMinhaLista().filter(x => x.status === 'novo' || x.status === 'retornar').map(x => x.id);
+  if (!fila.length) { showToast('Não há empresas "A contatar" ou "Retornar" na sua lista.', 'info'); return; }
+  PRO.fila = { ids: fila, i: 0 }; proFilaMostrar();
+}
+async function proFilaMostrar(){
+  const F = PRO.fila; if (!F) return;
+  if (F.i >= F.ids.length) { PRO.fila = null; closeModal(); proRender(); showToast('Fila concluída.'); return; }
+  const id = F.ids[F.i];
+  if (!PRO.fichas.has(id)) {
+    openModal('<div class="pro-vazio">Buscando a ficha no Google...</div>');
+    await proCarregarFichas([id]);
+    if (!PRO.fila) return;
+    if (!PRO.fichas.has(id)) { PRO.fila = null; closeModal(); proRender(); return; }
+  }
+  const p = PRO.fichas.get(id), x = proNaLista(id) || {};
+  if (p.sumiu) { F.i++; return proFilaMostrar(); }
+  const tel = p.nationalPhoneNumber || p.internationalPhoneNumber || '', zap = tel ? proZap(p) : '';
+  openModal(`
+    <div class="between"><h2 style="margin:0">Fila de contato <span class="badge b-blue" style="font-size:12px;vertical-align:middle">${F.i + 1} de ${F.ids.length}</span></h2><button class="btn" onclick="PRO.fila = null; closeModal(); proRender()">✕</button></div>
+    <div style="margin-top:12px"><div class="between" style="gap:8px;align-items:flex-start"><div class="pro-fila-nome">${esc(proNome(p))}</div><span class="pro-atrib">Google Maps</span></div>
+      <div class="muted" style="font-size:12.5px">${esc([proTipo(p), p.formattedAddress].filter(Boolean).join(' · '))}</div>
+      <div class="pro-fila-tel">${tel ? '📞 ' + esc(tel) : '<span class="muted" style="font-size:13px;font-weight:400">sem telefone no Google</span>'}</div></div>
+    <div class="pro-fila-botoes">
+      ${zap ? `<a class="btn green" href="${zap}" target="_blank" rel="noopener">WhatsApp com a mensagem</a>` : '<span></span>'}
+      ${tel ? `<a class="btn" href="tel:${esc(String(p.internationalPhoneNumber || tel).replace(/[^\d+]/g, ''))}">Ligar</a>` : '<span></span>'}
+    </div>
+    <div class="field" style="margin-top:12px"><label>Sua anotação</label><input id="proFilaNota" value="${esc(x.nota || '')}" placeholder="Ex.: falar com o Carlos depois das 14h"></div>
+    <label style="font-size:12px;font-weight:700">Como ficou?</label>
+    <div class="pro-fila-botoes" style="margin-top:6px">
+      <button class="btn primary" onclick="proFilaMarcar('contatado')">Contatado</button>
+      <button class="btn" onclick="proFilaMarcar('retornar')">Retornar depois</button>
+      <button class="btn" onclick="proFilaMarcar('sem')">Sem interesse</button>
+      <button class="btn" onclick="proFilaMarcar('')">Pular</button>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn gold" onclick="proFilaLead()">Virou conversa: cadastrar como lead</button>${p.googleMapsUri ? `<a class="btn" style="text-decoration:none" href="${esc(p.googleMapsUri)}" target="_blank" rel="noopener">Ver no Google Maps</a>` : ''}</div>`);
+}
+function proFilaMarcar(status){
+  const F = PRO.fila; if (!F) return; const x = proNaLista(F.ids[F.i]);
+  if (x) { const n = document.getElementById('proFilaNota'); if (n) x.nota = n.value.trim(); if (status) x.status = status; save(); }
+  F.i++; proFilaMostrar();
+}
+function proFilaLead(){
+  const F = PRO.fila; if (!F) return; const id = F.ids[F.i], x = proNaLista(id);
+  if (x) { const n = document.getElementById('proFilaNota'); if (n) x.nota = n.value.trim(); }
+  PRO.fila = null; proVirarLead(id); proRender();
+}
+
+// ---------- tela ----------
+function proItemHtml(p, guardado){
+  if (p.sumiu) return `<div class="pro-item"><div><div class="pro-nome">Empresa não encontrada mais no Google</div><div class="pro-sub">Pode ter fechado ou mudado de ficha.</div></div><div></div><div class="pro-acoes"><button class="btn danger" onclick="proRemover('${p.id}')">Tirar da lista</button></div></div>`;
+  const tel = p.nationalPhoneNumber || p.internationalPhoneNumber || '', zap = tel ? proZap(p) : '', naLista = proNaLista(p.id);
+  const fechada = p.businessStatus && p.businessStatus !== 'OPERATIONAL';
+  const nota = [proTipo(p), p.rating ? '★ ' + String(p.rating).replace('.', ',') + (p.userRatingCount ? ' (' + p.userRatingCount + ')' : '') : '', fechada ? 'consta como fechada' : ''].filter(Boolean).join(' · ');
+  return `<div class="pro-item">
+    <div style="min-width:0"><div class="pro-nome" title="${esc(proNome(p))}">${esc(proNome(p))}</div><div class="pro-sub" title="${esc(p.formattedAddress || '')}">${esc(p.formattedAddress || 'sem endereço')}</div>${nota ? `<div class="pro-sub">${esc(nota)}</div>` : ''}</div>
+    <div class="pro-tel ${tel ? '' : 'sem'}">${tel ? `📞 <a href="tel:${esc(String(p.internationalPhoneNumber || tel).replace(/[^\d+]/g, ''))}">${esc(tel)}</a>` : 'sem telefone no Google'}</div>
+    <div class="pro-acoes">
+      ${zap ? `<a class="btn green" href="${zap}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+      ${p.googleMapsUri ? `<a class="btn" href="${esc(p.googleMapsUri)}" target="_blank" rel="noopener">Maps</a>` : ''}
+      ${guardado ? '' : `<button class="btn ${naLista ? '' : 'primary'}" onclick="proGuardar('${p.id}')">${naLista ? '✓ Na lista' : '+ Guardar'}</button>`}
+      <button class="btn gold" onclick="proVirarLead('${p.id}')">Virar lead</button>
+      ${guardado ? `<button class="btn danger" onclick="proRemover('${p.id}')" title="Tirar da lista">✕</button>` : ''}
+    </div>
+    ${guardado ? `<div class="pro-meu"><select onchange="proMudar('${p.id}','status',this.value)">${PRO_STATUS.map(s => `<option value="${s[0]}" ${guardado.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select><input value="${esc(guardado.nota || '')}" placeholder="Sua anotação sobre esta empresa" onchange="proMudar('${p.id}','nota',this.value.trim())"></div>` : ''}
+  </div>`;
+}
+function proUsoHtml(){
+  const u = proUso(), f = t => `<span class="${u[t] >= PRO_GRATIS[t] * 0.9 ? 'cheio' : ''}"><b>${u[t].toLocaleString('pt-BR')}</b> de ${PRO_GRATIS[t].toLocaleString('pt-BR')}</span>`;
+  return `<div class="pro-uso"><span>Grátis neste mês, neste aparelho:</span><span>buscas ${f('buscas')}</span><span>fichas ${f('fichas')}</span><span class="pro-atrib">Google Maps</span></div>`;
+}
+function proTrocarSub(s){ PRO.sub = s; PRO.erro = ''; PRO.mostrando = 20; proRender(); }
+function proRender(){
+  const cx = document.getElementById('proCorpo'); if (!cx || !currentUser) return;
+  const lista = proMinhaLista();
+  document.querySelectorAll('#prospeccao .tab-pill').forEach(b => { b.classList.toggle('active', b.dataset.sub === PRO.sub); if (b.dataset.sub === 'lista') b.querySelector('i').textContent = lista.length ? ' (' + lista.length + ')' : ''; });
+  const barra = document.getElementById('proBusca'); if (barra) barra.style.display = PRO.sub === 'buscar' ? '' : 'none';
+  const uso = document.getElementById('proUso'); if (uso) uso.innerHTML = proUsoHtml();
+  const erro = PRO.erro ? `<div class="pro-vazio" style="color:#b91c1c">${esc(PRO.erro)}</div>` : '';
+  if (!proChave()) {
+    cx.innerHTML = `<div class="pro-vazio"><b>Falta a chave do Google Maps.</b><br>A busca usa a sua conta do Google: 1.000 buscas grátis por mês, com um cartão cadastrado.<br><button class="btn primary" style="margin-top:12px" onclick="proAbrirChave()">Colocar a chave e ver o passo a passo</button></div>`;
+    return;
+  }
+  if (PRO.sub === 'buscar') {
+    const vis = proVisiveis();
+    cx.innerHTML = (PRO.resultados.length ? `<div class="between" style="gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="font-size:13px"><b>${vis.length}</b> empresa(s) para "${esc(PRO.consulta)}"</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12.5px;margin:0;font-weight:600"><input type="checkbox" style="width:auto;margin:0 4px 0 0" ${PRO.soTel ? 'checked' : ''} onchange="PRO.soTel = this.checked; proRender()">só com telefone</label>
+          <button class="btn" style="font-size:12px;padding:5px 9px" onclick="proGuardarTodos()">Guardar todas</button></div></div>` : '') +
+      vis.map(p => proItemHtml(p, null)).join('') + erro +
+      (PRO.carregando ? '<div class="pro-vazio">Buscando no Google...</div>' : '') +
+      (!PRO.carregando && PRO.proxima ? `<div style="text-align:center;margin-top:12px"><button class="btn primary" onclick="proBuscar(true)">Buscar mais 20</button><div class="muted" style="font-size:11.5px;margin-top:4px">O Google entrega até 60 por busca. Cada "mais 20" conta como uma busca.</div></div>` : '') +
+      (!PRO.carregando && !PRO.resultados.length && !PRO.erro ? '<div class="pro-vazio">Escreva o tipo de empresa e a cidade e toque em <b>Buscar</b>.<br>Para cidade grande, busque por bairro ou região: cada busca traz até 60 empresas.</div>' : '');
+    return;
+  }
+  // minha lista
+  const contagem = {}; lista.forEach(x => contagem[x.status] = (contagem[x.status] || 0) + 1);
+  const filtrada = lista.filter(x => PRO.filtro === 'todos' || x.status === PRO.filtro).slice().sort((a, b) => String(b.quando).localeCompare(String(a.quando)));
+  const pagina = filtrada.slice(0, PRO.mostrando), semFicha = pagina.filter(x => !PRO.fichas.has(x.id)).map(x => x.id);
+  cx.innerHTML = (lista.length ? `<div class="between" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="row" style="gap:6px;flex-wrap:wrap">${[['todos', 'Todas']].concat(PRO_STATUS).map(s => `<button class="btn ${PRO.filtro === s[0] ? 'primary' : ''}" style="font-size:12px;padding:4px 9px" onclick="PRO.filtro='${s[0]}'; PRO.mostrando = 20; proRender()">${s[1]}${s[0] === 'todos' ? ' ' + lista.length : (contagem[s[0]] ? ' ' + contagem[s[0]] : '')}</button>`).join('')}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" style="font-size:12px;padding:5px 9px" onclick="proAbrirMensagem()">Mensagem do WhatsApp</button><button class="btn primary" style="font-size:12px;padding:5px 9px" onclick="proFilaAbrir()">▶ Fila de contato</button></div></div>` : '') +
+    pagina.map(x => PRO.fichas.has(x.id) ? proItemHtml(PRO.fichas.get(x.id), x) : '').join('') + erro +
+    (PRO.carregando ? '<div class="pro-vazio">Buscando as fichas no Google...</div>' : '') +
+    (!PRO.carregando && semFicha.length && PRO.erro ? `<div style="text-align:center"><button class="btn" onclick="PRO.erro=''; proRender()">Tentar de novo</button></div>` : '') +
+    (!PRO.carregando && filtrada.length > PRO.mostrando ? `<div style="text-align:center;margin-top:12px"><button class="btn primary" onclick="PRO.mostrando += 20; proRender()">Mostrar mais 20</button><div class="muted" style="font-size:11.5px;margin-top:4px">Faltam ${filtrada.length - PRO.mostrando}. Cada empresa aberta conta como uma ficha.</div></div>` : '') +
+    (!lista.length ? '<div class="pro-vazio">Sua lista está vazia.<br>Faça uma busca e toque em <b>+ Guardar</b> nas empresas que interessam.<br>Fica guardado o código de cada empresa, a situação e a sua anotação; nome, telefone e endereço são buscados no Google toda vez que você abre a lista.</div>' : '') +
+    (lista.length && !filtrada.length ? '<div class="pro-vazio">Nenhuma empresa nessa situação.</div>' : '');
+  if (semFicha.length && !PRO.carregando && !PRO.erro) proCarregarFichas(semFicha);
+}
+
+// ---------- liga a aba ao CRM ----------
+(function(){
+  const antes = show;
+  show = function(id, btn){
+    const r = antes.apply(this, arguments);
+    if (id === 'prospeccao') {
+      try { const u = JSON.parse(localStorage.getItem(`crm_pro_ultima_${EQUIPE_ID}`)) || {}; const a = document.getElementById('proOque'), b = document.getElementById('proOnde'); if (a && !a.value) a.value = u.oque || ''; if (b && !b.value) b.value = u.onde || ''; } catch (e) {}
+      proRender();
+    }
+    return r;
+  };
+})();
 </script>
 </body>
 </html>
