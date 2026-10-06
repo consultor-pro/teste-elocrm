@@ -3800,8 +3800,8 @@ function canUserAccessFollow(follow){
 //   ter equipes em lojas diferentes e responder a líderes diferentes.
 // - Quem está acima enxerga só as VENDAS ACEITAS de quem está abaixo, e só as da loja em que
 //   está acima (nunca leads nem agenda); ninguém enxerga quem está ao lado.
-// - A venda de um liderado fica "aguardando aceite" do líder direto daquela loja e só entra em
-//   Consultores & Vendas, Semáforo, Mapa de Cotas e Dashboard depois de aceita.
+// - Com HIER_ACEITE ligado, a venda de um liderado fica "aguardando aceite" do líder direto daquela
+//   loja e só entra nos números depois de aceita. Hoje está DESLIGADO: toda venda entra direto.
 function hierNivel(cargo){
   const i = HIER_CARGOS.findIndex(c => c.toLowerCase() === String(cargo || '').trim().toLowerCase());
   return i < 0 ? HIER_NIVEL_CONSULTOR : Math.min(i, HIER_NIVEL_CONSULTOR);
@@ -3959,6 +3959,24 @@ function notificacoesVisiveis(){
   return (notifications || []).filter(n => !Array.isArray(n.para) || n.para.includes(currentUser.id));
 }
 
+// ---------- aceite de vendas: ligado ou desligado ----------
+// true  = a venda de um liderado espera o líder aceitar antes de entrar nos números
+// false = toda venda entra direto (a loja e a equipe da época continuam sendo gravadas na venda)
+const HIER_ACEITE = false;
+// Com o aceite desligado, o que estava esperando (ou tinha sido recusado) entra direto nos números
+function hierSoltarEnviadas(){
+  if (HIER_ACEITE || !db || !Array.isArray(db.vendasEnviadas) || !db.vendasEnviadas.length) return 0;
+  if (!Array.isArray(db.sales)) db.sales = [];
+  let n = 0;
+  db.vendasEnviadas.forEach(e => {
+    const s = e && e.sale; if (!s || db.sales.some(x => x.id === s.id)) return;
+    hierCarimbar(s, null); if (e.conflito) s.aprov.conflito = e.conflito;
+    db.sales.push(s); n++;
+  });
+  db.vendasEnviadas = [];
+  return n;
+}
+
 // ---------- carimbo de aceite ----------
 function hierDigital(s){
   return [Number(s.valor || 0).toFixed(2), String(s.grupo || '').trim(), String(s.cota || '').trim(), s.segmento || '', String(s.date || '').slice(0, 10)].join('|');
@@ -3982,6 +4000,7 @@ function hierMarcarLegado(){
   if (!MODO_HIERARQUIA || !db) return;
   hierLimparCache();
   if (!Array.isArray(db.vendasEnviadas)) db.vendasEnviadas = [];
+  hierSoltarEnviadas();
   (db.sales || []).forEach(s => { if (!s.aprov) hierCarimbar(s, null, true); });
 }
 function hierVendedorId(s){
@@ -4021,10 +4040,11 @@ function hierConferirVendas(){
   try {
     hierLimparCache();
     if (!Array.isArray(db.vendasEnviadas)) db.vendasEnviadas = [];
+    hierSoltarEnviadas();
     if (!currentUser) { hierMarcarLegado(); return; }
     const eu = currentUser.id;
     const ficam = [];
-    let enviadas = 0, voltaram = 0, nomeLider = '';
+    let enviadas = 0, voltaram = 0, nomeLider = '', avisoRepetida = '';
     const perguntarLoja = [];
     const lojaDe = (s, vend) => (typeof s.loja === 'string' && s.loja) || hierLojaPrincipal(vend);
     const enviar = (s, vend, nota) => {
@@ -4046,12 +4066,12 @@ function hierConferirVendas(){
         // quem vende em mais de uma loja: começa na loja principal e o CRM pergunta de qual loja é
         if (vend && !s.loja && hierLojasDe(vend).length > 1) { s.loja = hierLojaPrincipal(vend); perguntarLoja.push(s.id); }
         const lojaS = lojaDe(s, vend);
-        const precisaAceite = vend && hierLideresNaLoja(vend.id, lojaS).length && !hierEstaAcima(eu, vend.id, lojaS);
+        const precisaAceite = HIER_ACEITE && vend && hierLideresNaLoja(vend.id, lojaS).length && !hierEstaAcima(eu, vend.id, lojaS);
         if (precisaAceite) { enviar(s, vend, ''); enviadas++; }
         else {
           hierCarimbar(s, eu);
           const conflito = hierConflitoCota(s);
-          if (conflito) s.aprov.conflito = conflito;
+          if (conflito) { s.aprov.conflito = conflito; if (!HIER_ACEITE) avisoRepetida = hierTextoConflito(conflito); }
           ficam.push(s);
         }
         return;
@@ -4060,7 +4080,7 @@ function hierConferirVendas(){
         const nIdx = (s.indicesAplicados || []).length;
         const reajuste = nIdx !== (s.aprov.nIdx || 0); // reajuste anual INCC/INPC não precisa de novo aceite
         const lojaS = hierLojaDaVenda(s);
-        const podeMexer = reajuste || !vend || !hierLideresNaLoja(vend.id, lojaS).length || hierEstaAcima(eu, vend.id, lojaS);
+        const podeMexer = !HIER_ACEITE || reajuste || !vend || !hierLideresNaLoja(vend.id, lojaS).length || hierEstaAcima(eu, vend.id, lojaS);
         if (podeMexer) { s.aprov.digital = hierDigital(s); s.aprov.nIdx = nIdx; ficam.push(s); }
         else { delete s.aprov; enviar(s, vend, 'Venda alterada depois do aceite'); voltaram++; }
         return;
@@ -4084,6 +4104,8 @@ function hierConferirVendas(){
       hierCarimbar(e.sale, null); db.sales.push(e.sale); return false;
     });
     if (perguntarLoja.length) setTimeout(() => hierPerguntarLojaDaVenda(perguntarLoja[0]), 700);
+    // sem aceite ninguém confere depois: quem lança é avisado na hora se o grupo e a cota já existem
+    if (avisoRepetida) setTimeout(() => { if (typeof showToast === 'function') showToast('Atenção: ' + avisoRepetida + ' Confira se não é a mesma venda lançada duas vezes.', 'warn'); }, 600);
     if (enviadas || voltaram) {
       const msg = voltaram && !enviadas
         ? `📨 Venda alterada: voltou para o aceite de ${nomeLider || 'seu líder'}.`
@@ -4129,7 +4151,7 @@ function hierCotasAtivasDoLead(leadId){
 function hierTextoConflito(c){
   if (!c) return '';
   const vejo = equipeVisivel().some(u => u.id === c.outroId);
-  return `Este grupo e cota já ${c.onde === 'aceita' ? 'constam em uma venda aceita' : 'estão em outra venda aguardando aceite'} de ${vejo ? c.outroNome : 'outra equipe'}.`;
+  return `Este grupo e cota já ${c.onde === 'aceita' ? (HIER_ACEITE ? 'constam em uma venda aceita' : 'constam em uma venda') : 'estão em outra venda aguardando aceite'} de ${vejo ? c.outroNome : 'outra equipe'}.`;
 }
 
 // ---------- avisos (faixa no topo + contador no menu) ----------
@@ -4142,7 +4164,8 @@ function hierAtualizarAvisos(){
 
   // contador no botão do menu (criado aqui porque o menu é redesenhado com ícones depois de carregar)
   const botao = document.getElementById('btnNavAceite');
-  if (botao) {
+  if (botao) botao.style.display = HIER_ACEITE ? '' : 'none';
+  if (botao && HIER_ACEITE) {
     let cont = botao.querySelector('.hier-cont');
     if (!cont) { cont = document.createElement('span'); cont.className = 'hier-cont'; botao.appendChild(cont); }
     const n = paraMim + recusadas; cont.textContent = n; cont.style.display = n ? 'inline-block' : 'none';
@@ -4332,7 +4355,7 @@ function hierPerguntarLojaDaVenda(saleId){
   openModal(`
     <div class="between"><h2 style="margin:0">De qual loja é esta venda?</h2><button class="btn" onclick="closeModal()">✕</button></div>
     <p style="font-size:14px;margin:10px 0"><b>${esc(vend.nome)}</b> atua em mais de uma loja. ${esc(s.lead || 'Cliente')} · ${hierMoeda(s.valor)}</p>
-    <p class="muted" style="font-size:13px;margin:0 0 12px">A loja define para qual equipe a venda conta e qual líder dá o aceite.</p>
+    <p class="muted" style="font-size:13px;margin:0 0 12px">A loja define para qual equipe a venda conta${HIER_ACEITE ? ' e qual líder dá o aceite' : ''}.</p>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       ${lojas.map(l => `<button class="btn ${l === atual ? 'primary' : ''}" onclick="hierDefinirLojaDaVenda('${s.id}','${l}')">${esc(hierLojaNome(l))}</button>`).join('')}
     </div>`);
@@ -4356,7 +4379,7 @@ function hierDesativarUsuario(userId){
   const u = hierUsuario(userId);
   if (!u || u.id === currentUser.id || !hierEstaAcima(currentUser.id, u.id)) return;
   const diretos = (usersList || []).filter(x => hierVinculos(x).some(v => v.liderId === u.id));
-  if (!confirm(`Desativar ${u.nome}?\n\nEle(a) não consegue mais entrar. As vendas já aceitas continuam no histórico.` + (diretos.length ? `\n\nOs ${diretos.length} liderado(s) direto(s) passam a responder para o líder dele(a).` : ''))) return;
+  if (!confirm(`Desativar ${u.nome}?\n\nEle(a) não consegue mais entrar. As vendas já lançadas continuam no histórico.` + (diretos.length ? `\n\nOs ${diretos.length} liderado(s) direto(s) passam a responder para o líder dele(a).` : ''))) return;
   u.ativo = false;
   // cada liderado direto passa a responder, naquela loja, para quem liderava a pessoa desativada
   diretos.forEach(x => {
@@ -8367,7 +8390,7 @@ function openPermissionsModal(userId){
         <select id="permSuperiorId" style="font-weight:700">
           ${lideresPossiveis.map(other => `<option value="${other.id}" ${u.superiorId === other.id ? 'selected' : ''}>👑 Líder: ${esc(other.nome)} (${esc(other.cargo)})</option>`).join('')}
         </select>
-        <small class="muted">Cada pessoa tem um único líder direto. As vendas já aceitas continuam contando para a equipe da época.</small>
+        <small class="muted">Cada pessoa tem um único líder direto. As vendas já lançadas continuam contando para a equipe da época.</small>
       </div>
 
       <div class="field"><label>🎯 Meta Mensal de Vendas (R$)</label><input type="text" id="permMetaMensal" value="${u.metaMensal ? 'R$ ' + Number(u.metaMensal).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}" placeholder="R$ 0,00" oninput="maskMoneySim(this)"></div>
