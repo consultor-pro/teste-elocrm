@@ -18300,14 +18300,19 @@ async function proChamar(caminho, opcoes){
   catch (e) { throw new Error('Não consegui falar com o Google. Confira a internet e tente de novo.'); }
   let corpo = null; try { corpo = await r.json(); } catch (e) {}
   if (!r.ok) {
-    const msg = (corpo && corpo.error && corpo.error.message) || '', st = (corpo && corpo.error && corpo.error.status) || '';
-    if (/API key not valid|API_KEY_INVALID/i.test(msg)) throw new Error('O Google não reconheceu a chave. Confira se ela foi copiada inteira.');
-    if (/referer|referrer|IP address|not authorized to use this API key/i.test(msg)) throw new Error('A chave não aceita este endereço. Nas restrições da chave, no Google, inclua o endereço deste CRM.');
-    if (/has not been used|is disabled|SERVICE_DISABLED|not enabled/i.test(msg)) throw new Error('A "Places API (New)" ainda não foi ativada no seu projeto do Google.');
-    if (/billing/i.test(msg)) throw new Error('O Google pede uma conta de faturamento (cartão) ativa no projeto, mesmo para usar só a parte grátis.');
+    const er = (corpo && corpo.error) || {}, msg = er.message || '', st = er.status || '';
+    // o Google manda o motivo exato num campo à parte; a frase principal muitas vezes é genérica
+    const motivos = (Array.isArray(er.details) ? er.details : []).map(d => d && d.reason).filter(Boolean).join(' ');
+    const tudo = msg + ' ' + motivos, site = /^https?:$/.test(location.protocol) ? location.origin + '/*' : 'o endereço deste CRM';
+    if (/API_KEY_INVALID|API key not valid/i.test(tudo)) throw new Error('O Google não reconheceu a chave. Confira se ela foi copiada inteira.');
+    if (/API_KEY_HTTP_REFERRER_BLOCKED|referer|referrer/i.test(tudo)) throw new Error('A chave não aceita este endereço. No Google, abra a chave e, em "Restrições de sites", deixe exatamente ' + site);
+    if (/API_KEY_SERVICE_BLOCKED|are blocked/i.test(tudo)) throw new Error('A chave não está liberada para a "Places API (New)". No Google, abra a chave e, em "Restrições de API", marque "Places API (New)".');
+    if (/BILLING_DISABLED|billing/i.test(tudo)) throw new Error('O projeto do Google está sem faturamento ativo. No Google Cloud, em "Faturamento", cadastre o cartão e vincule a conta de faturamento a este projeto. Sem isso o Google não libera nem a parte grátis.');
+    if (/SERVICE_DISABLED|has not been used|is disabled|not enabled/i.test(tudo)) throw new Error('A "Places API (New)" não está ativada neste projeto do Google. Em "APIs e serviços › Biblioteca", procure "Places API (New)" e clique em Ativar (é a que tem "New" no nome).');
     if (r.status === 429 || st === 'RESOURCE_EXHAUSTED') throw new Error('O Google bloqueou por limite de uso. Se você colocou um teto de consultas, ele foi atingido.');
     if (r.status === 404) throw new Error('nao-encontrada');
-    throw new Error('O Google respondeu com erro: ' + (msg || ('código ' + r.status)));
+    if (r.status === 403 || st === 'PERMISSION_DENIED') throw new Error('O Google recusou a chave sem dizer o motivo. As duas causas mais comuns: (1) o projeto está sem faturamento ativo, com cartão cadastrado e vinculado; (2) a "Places API (New)" não foi ativada neste mesmo projeto. Se a chave acabou de ser criada, espere 5 minutos e tente de novo. Resposta do Google: ' + (msg || 'sem texto') + (motivos ? ' [' + motivos + ']' : ''));
+    throw new Error('O Google respondeu com erro: ' + (msg || ('código ' + r.status)) + (motivos ? ' [' + motivos + ']' : ''));
   }
   return corpo || {};
 }
