@@ -1496,7 +1496,7 @@ if (localStorage.getItem('crm_res_monitor_minimizado') !== 'false') {
     <div class="between">
       <div>
         <h2 style="margin:0" id="comissaoViewTitle">📊 Planilha Editável de Projeção & Cálculo de Comissões</h2>
-        <small class="muted" id="comissaoViewSubtitle">Comissão de 2,3% (ou taxa à vista do segmento) até a 15ª parcela, com edição de data/mês e valor das parcelas.</small>
+        <small class="muted" id="comissaoViewSubtitle">Comissão de 2,3% (ou taxa à vista do segmento) até a 15ª parcela, com edição de data/mês e valor das parcelas. Aqui aparecem só as vendas da sua matrícula e as que você mesmo vendeu.</small>
       </div>
       <div class="row">
         <select id="comissaoFilterUser" onchange="renderComissoes()" style="max-width:240px">
@@ -3769,6 +3769,7 @@ function canUserAccessSale(sale){
     // Venda aceita: aparece para quem vendeu e para quem estava acima dele na época da venda.
     const vid = hierVendedorId(sale);
     if (vid === currentUser.id || (!vid && sale.responsavel === currentUser.nome)) return true;
+    if (sale.matriculaId === currentUser.id) return true;
     const cadeia = (sale.aprov && Array.isArray(sale.aprov.cadeia)) ? sale.aprov.cadeia : (vid ? hierCadeiaAcima(vid, hierLojaDaVenda(sale)) : []);
     return cadeia.includes(currentUser.id);
   }
@@ -4001,7 +4002,7 @@ function hierMarcarLegado(){
   hierLimparCache();
   if (!Array.isArray(db.vendasEnviadas)) db.vendasEnviadas = [];
   hierSoltarEnviadas();
-  (db.sales || []).forEach(s => { if (!s.aprov) hierCarimbar(s, null, true); });
+  (db.sales || []).forEach(s => { if (!s.aprov) hierCarimbar(s, null, true); hierMatriculaLegado(s); });
 }
 function hierVendedorId(s){
   if (s.aprov && s.aprov.vendedorId) return s.aprov.vendedorId;
@@ -4045,7 +4046,7 @@ function hierConferirVendas(){
     const eu = currentUser.id;
     const ficam = [];
     let enviadas = 0, voltaram = 0, nomeLider = '', avisoRepetida = '';
-    const perguntarLoja = [];
+    const perguntarLoja = [], perguntarMat = [];
     const lojaDe = (s, vend) => (typeof s.loja === 'string' && s.loja) || hierLojaPrincipal(vend);
     const enviar = (s, vend, nota) => {
       const lideres = hierLideresNaLoja(vend.id, lojaDe(s, vend));
@@ -4062,7 +4063,7 @@ function hierConferirVendas(){
     db.sales.forEach(s => {
       const vend = hierUsuarioPorNome(s.responsavel);
       if (!s.aprov) {
-        if (s._backupImportId) { hierCarimbar(s, null, true); ficam.push(s); return; }
+        if (s._backupImportId) { hierCarimbar(s, null, true); hierMatriculaLegado(s); ficam.push(s); return; }
         // quem vende em mais de uma loja: começa na loja principal e o CRM pergunta de qual loja é
         if (vend && !s.loja && hierLojasDe(vend).length > 1) { s.loja = hierLojaPrincipal(vend); perguntarLoja.push(s.id); }
         const lojaS = lojaDe(s, vend);
@@ -4070,6 +4071,7 @@ function hierConferirVendas(){
         if (precisaAceite) { enviar(s, vend, ''); enviadas++; }
         else {
           hierCarimbar(s, eu);
+          if (hierMatriculaInicial(s)) perguntarMat.push(s.id);
           const conflito = hierConflitoCota(s);
           if (conflito) { s.aprov.conflito = conflito; if (!HIER_ACEITE) avisoRepetida = hierTextoConflito(conflito); }
           ficam.push(s);
@@ -4104,6 +4106,7 @@ function hierConferirVendas(){
       hierCarimbar(e.sale, null); db.sales.push(e.sale); return false;
     });
     if (perguntarLoja.length) setTimeout(() => hierPerguntarLojaDaVenda(perguntarLoja[0]), 700);
+    else if (perguntarMat.length) setTimeout(() => hierPerguntarMatricula(perguntarMat[0]), 700);
     // sem aceite ninguém confere depois: quem lança é avisado na hora se o grupo e a cota já existem
     if (avisoRepetida) setTimeout(() => { if (typeof showToast === 'function') showToast('Atenção: ' + avisoRepetida + ' Confira se não é a mesma venda lançada duas vezes.', 'warn'); }, 600);
     if (enviadas || voltaram) {
@@ -4366,12 +4369,14 @@ function hierDefinirLojaDaVenda(saleId, loja){
   if (hierLojaDaVenda(s) !== loja || (achou.enviada && hierLojaDaEnviada(achou.enviada) !== loja)) {
     // refaz o encaminhamento com a loja certa (o líder e a equipe podem ser outros)
     s.loja = loja; delete s.aprov;
+    if (s.matriculaId && s.matriculaId !== hierVendedorId(s)) { delete s.matriculaId; delete s.matPend; delete s.matAuto; }
     if (achou.enviada) { db.vendasEnviadas = db.vendasEnviadas.filter(x => x !== achou.enviada); db.sales.push(s); }
     save();
     if (typeof syncComissaoTabs === 'function') syncComissaoTabs();
   }
   closeModal(); renderAll();
   showToast('Venda registrada na ' + (hierLojaNome(loja) || 'loja escolhida') + '.');
+  if (s.matPend) setTimeout(() => hierPerguntarMatricula(s.id), 500);
 }
 
 // ---------- equipe: desativar em vez de apagar ----------
@@ -4779,8 +4784,10 @@ function hierEditarMembro(userId){
     <div class="field"><label>Usuário ou e-mail de acesso</label><input id="hmEmail" value="${esc(u.email || '')}"></div>
     <div class="field"><label>WhatsApp com DDD</label><input id="hmTel" value="${esc(u.tel || '')}"></div>
     <div class="field"><label>Data de nascimento (aparece em Aniversariantes)</label><input type="date" id="hmNasc" value="${esc(u.nasc || '')}"></div>
+<div class="field"><label>Nº da matrícula (se já tiver)</label><input id="hmMatricula" value="${esc(u.matricula || '')}" placeholder="Opcional"></div>
     <div class="field"><label>Lojas, cargos e líderes</label>
       <div id="hmVinculos"></div>
+      <small class="muted" style="display:block;margin-top:4px"><b>Consultor</b> = em prévia: as vendas saem na matrícula de um autorizado acima. <b>Consultor autorizado</b> (ou cargo de liderança) = matrícula própria.</small>
       <button class="tc-btn" style="margin-top:6px" onclick="hierAddVinculo('${u.id}')">+ Adicionar outra loja</button>
       <small class="muted" style="display:block;margin-top:6px">Cada linha é uma loja em que a pessoa atua, o cargo dela ali e quem lidera ela ali. Ela pode ser Diretor em uma loja e Gestor em outra. O líder precisa ter, naquela loja, cargo acima do dela. Cada líder enxerga só as vendas da loja em que é líder dela.</small></div>
     <div class="row" style="justify-content:flex-end"><button class="btn primary" onclick="hierSalvarMembro('${u.id}')">Salvar</button></div>`);
@@ -4816,10 +4823,130 @@ function hierSalvarMembro(userId){
     if (acimaDela) return alert(`Na linha "${nomeLoja}": ${acimaDela.nome} é liderado(a) dela nessa loja e tem cargo igual ou acima de ${v.cargo}. Ajuste o cargo ou troque o líder de ${acimaDela.nome} antes.`);
   }
   u.nome = nome; u.email = email; u.tel = tel; u.nasc = nasc;
+  u.matricula = (document.getElementById('hmMatricula')?.value || '').trim();
+  const eraAutorizado = hierAutorizado(u);
   hierGravarVinculos(u, vinc);
+  if (!eraAutorizado && hierAutorizado(u)) setTimeout(() => showToast(`${nome} agora tem matrícula própria. As vendas novas saem na matrícula dele(a); as anteriores continuam onde foram lançadas.`), 900);
   if (nomeAntigo !== nome && typeof cascatearRenomeacaoResponsavel === 'function') cascatearRenomeacaoResponsavel(nomeAntigo, nome);
   save(); closeModal(); renderAll();
   showToast('Cadastro atualizado.');
+}
+
+// ---------- MATRÍCULA: em qual matrícula a venda saiu ----------
+// Quem chega na Ademicon fica "em prévia": as vendas saem na matrícula de um autorizado que está acima.
+// Depois de autorizada, a pessoa tem matrícula própria. O que isso muda no CRM:
+//  - os recebimentos (parcelas de comissão) de uma venda aparecem só para quem vendeu e para o dono da matrícula;
+//  - quem está acima vê apenas o resumo da venda: data, cliente, grupo, cota e valor.
+// A situação vem do cargo: "Consultor" (em qualquer loja) = em prévia; "Consultor autorizado" ou cargo de liderança = matrícula própria
+function hierAutorizado(u){
+  if (!u) return false;
+  let cargos = hierVinculos(u).map(v => v.cargo); if (!cargos.length && u.cargo) cargos = [u.cargo];
+  const validos = cargos.map(c => String(c || '').trim().toLowerCase()).filter(Boolean);
+  return validos.length ? validos.some(c => c !== 'consultor') : true;
+}
+function hierMatriculaId(s){ return s.matriculaId || hierVendedorId(s); }
+function hierMatriculaNome(s){ const u = hierUsuario(hierMatriculaId(s)); return u ? u.nome : (s.responsavel || ''); }
+// Matrículas possíveis para uma venda: a de quem vendeu (se já é autorizado) e as dos autorizados acima dele na loja da venda
+function hierOpcoesMatricula(s){
+  const vid = hierVendedorId(s); const vend = hierUsuario(vid); if (!vend) return [];
+  const ids = []; if (hierAutorizado(vend)) ids.push(vend.id);
+  const cadeia = (s.aprov && Array.isArray(s.aprov.cadeia) && s.aprov.cadeia.length) ? s.aprov.cadeia : hierCadeiaAcima(vid, hierLojaDaVenda(s)); // equipe da época da venda
+  cadeia.forEach(id => { const u = hierUsuario(id); if (u && u.ativo !== false && hierAutorizado(u) && !ids.includes(id)) ids.push(id); });
+  return ids;
+}
+// Posso ver os recebimentos desta venda?
+function hierVeFinanceiro(s){
+  if (!MODO_HIERARQUIA) return true;
+  if (!currentUser || !s) return false;
+  const vid = hierVendedorId(s);
+  if (vid === currentUser.id || (!vid && s.responsavel === currentUser.nome)) return true;
+  return hierMatriculaId(s) === currentUser.id;
+}
+function hierVendasComFinanceiro(){ return (db.sales || []).filter(hierVeFinanceiro); }
+// Trava de segurança das funções que alteram uma venda: só quem vendeu ou o dono da matrícula
+function hierPodeMexerVenda(saleId){
+  if (!MODO_HIERARQUIA) return true;
+  const s = (db.sales || []).find(x => x.id === saleId);
+  if (!s || hierVeFinanceiro(s)) return true;
+  if (typeof showToast === 'function') showToast('🔒 Esta venda está em outra matrícula. Você vê só o resumo dela.', 'warn');
+  if (typeof syncComissaoTabs === 'function') syncComissaoTabs();
+  return false;
+}
+// Venda nova: define a matrícula. Devolve true quando é preciso perguntar (vendedor em prévia)
+function hierMatriculaInicial(s){
+  if (s.matriculaId) return false;
+  const ops = hierOpcoesMatricula(s); const vid = hierVendedorId(s);
+  if (!ops.length) return false;                 // ninguém autorizado acima: fica com quem vendeu
+  s.matriculaId = ops[0];
+  if (ops[0] === vid) return false;              // autorizado: sai na própria matrícula, sem pergunta
+  s.matPend = true; return true;
+}
+// Vendas que já existiam (ou vieram de backup) feitas por quem está em prévia: ficam na matrícula do autorizado mais próximo acima
+function hierMatriculaLegado(s){
+  if (s.matriculaId) return;
+  const vend = hierUsuario(hierVendedorId(s)); if (!vend || hierAutorizado(vend)) return;
+  const ops = hierOpcoesMatricula(s); if (ops.length) { s.matriculaId = ops[0]; s.matAuto = true; }
+}
+function hierSeloMatricula(s){
+  if (!MODO_HIERARQUIA || !currentUser) return '';
+  const vid = hierVendedorId(s), mid = hierMatriculaId(s);
+  if (!mid || mid === vid) return '';
+  const troca = `style="cursor:pointer" title="Trocar a matrícula desta venda" onclick="hierPerguntarMatricula('${s.id}')"`;
+  if (vid === currentUser.id) return ` <span class="badge b-blue" ${troca}>Matrícula de ${esc(hierMatriculaNome(s))}${s.matPend ? ' · confirmar' : ''}</span>`;
+  if (mid === currentUser.id) return ` <span class="badge b-gold" ${troca}>Na sua matrícula · vendida por ${esc(s.responsavel || '')}</span>`;
+  return '';
+}
+function hierPerguntarMatricula(saleId){
+  const s = (db.sales || []).find(x => x.id === saleId); if (!s) return;
+  if (!hierVeFinanceiro(s) && !(currentUser && hierEstaAcima(currentUser.id, hierVendedorId(s), hierLojaDaVenda(s)))) return;
+  const vend = hierUsuario(hierVendedorId(s)); const ops = hierOpcoesMatricula(s);
+  if (!vend || !ops.length) return showToast('Não há ninguém autorizado acima de quem vendeu. Marque o líder como "Autorizado" na aba Equipe.', 'warn');
+  const atual = hierMatriculaId(s);
+  openModal(`
+    <div class="between"><h2 style="margin:0">Em qual matrícula saiu esta venda?</h2><button class="btn" onclick="closeModal()">✕</button></div>
+    <p style="font-size:14px;margin:10px 0"><b>${esc(s.lead || 'Cliente')}</b> · ${hierMoeda(s.valor)} · vendida por <b>${esc(vend.nome)}</b>${hierAutorizado(vend) ? '' : ' (em prévia)'}</p>
+    <p class="muted" style="font-size:13px;margin:0 0 12px">Os recebimentos desta venda aparecem na aba Comissões de quem vendeu e do dono da matrícula. Quem está acima vê só data, cliente, grupo, cota e valor.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${ops.map(id => { const u = hierUsuario(id); return `<button class="btn ${id === atual ? 'primary' : ''}" style="text-align:left" onclick="hierDefinirMatricula('${s.id}','${id}')">${esc(u.nome)} <small style="opacity:.8">· ${esc(hierCargoNaLoja(u, hierLojaDaVenda(s)) || u.cargo || '')}${u.matricula ? ' · matrícula ' + esc(u.matricula) : ''}${id === vend.id ? ' · matrícula própria' : ''}</small></button>`; }).join('')}
+    </div>`);
+}
+function hierDefinirMatricula(saleId, userId){
+  const s = (db.sales || []).find(x => x.id === saleId); if (!s) return closeModal();
+  if (!hierOpcoesMatricula(s).includes(userId)) return closeModal();
+  const mudou = hierMatriculaId(s) !== userId || s.matPend;
+  s.matriculaId = userId; delete s.matPend; delete s.matAuto;
+  if (mudou) {
+    const vend = hierUsuario(hierVendedorId(s));
+    if (userId !== hierVendedorId(s) && userId !== currentUser.id)
+      hierNotificar([userId], 'venda', 'Venda na sua matrícula', `${vend ? vend.nome : s.responsavel} lançou ${hierMoeda(s.valor)} (${s.lead || 'cliente'}) na sua matrícula.`);
+    save();
+  }
+  closeModal(); renderAll();
+  showToast('Venda registrada na matrícula de ' + hierMatriculaNome(s) + '.');
+}
+// Consultores & Vendas de alguém cujas vendas estão em outra matrícula: só o resumo
+function hierResumoVendasHtml(lista){
+  const linhas = lista.map(s => `<tr>
+      <td style="text-align:left">${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '-'}</td>
+      <td style="text-align:left"><b>${esc(s.lead || '-')}</b>${s.cancelada ? ' <span class="badge b-cancelada">Cancelada</span>' : ''}</td>
+      <td>${esc(s.grupo || '-')}</td><td>${esc(s.cota || '-')}</td>
+      <td style="font-weight:700;text-align:right;color:${s.cancelada ? 'var(--muted)' : 'var(--green)'}">${hierMoeda(s.valor)}</td></tr>`).join('');
+  return `<tr><th style="min-width:110px;text-align:left">Data da venda</th><th style="min-width:220px;text-align:left">Cliente</th><th style="min-width:90px">Grupo</th><th style="min-width:90px">Cota</th><th style="min-width:140px;text-align:right">Valor da venda</th></tr>` + linhas;
+}
+// Liga/desliga a "visão resumida" da aba Consultores & Vendas (sem o quadro de comissão por mês)
+function hierModoResumoVc(resumo){
+  const fluxo = document.getElementById('vcMonthlyFlowSummary'); if (fluxo && fluxo.parentElement) fluxo.parentElement.style.display = resumo ? 'none' : '';
+  const t = document.getElementById('vcTituloPlanilha'), d = document.getElementById('vcDicaPlanilha');
+  if (t) t.textContent = resumo ? '📋 Vendas do consultor' : '📋 Planilha de Vendas & Comissão do Consultor';
+  if (d) d.textContent = resumo ? 'Você vê o resumo das vendas. Os recebimentos aparecem só para quem vendeu e para o dono da matrícula em que a venda saiu.' : '💡 Edite Crédito, Modalidade, Data e Valor de cada parcela diretamente na tabela — igual a uma planilha do Excel.';
+}
+function hierExportarResumoVendas(lista, consultor){
+  const linhas = [[consultor || ''], ['DATA DA VENDA', 'NOME DO CLIENTE', 'GRUPO', 'COTA', 'VALOR DA VENDA']];
+  lista.forEach(s => linhas.push([s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '', s.lead || '', s.grupo || '', s.cota || '', Number(s.valor || 0)]));
+  linhas.push(['', '', '', 'TOTAL', lista.filter(s => !s.cancelada).reduce((a, s) => a + Number(s.valor || 0), 0)]);
+  const ws = XLSX.utils.aoa_to_sheet(linhas); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (consultor || 'Vendas').substring(0, 31));
+  XLSX.writeFile(wb, `vendas_${(consultor || 'consultor').replace(/\s+/g, '_')}.xlsx`);
 }
 
 // ---------- cópia de teste: atalho "entrar como" na tela de login ----------
@@ -6496,16 +6623,18 @@ function populateUserSelects(){
     if(canSeeTeamComis){
       comisFilter.style.display = 'inline-block';
       comisFilter.innerHTML = '<option value="all">Toda a Carteira</option>' + usersList.map(u=>`<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
-    } else if(mySubordinateNames.length > 1) {
+    } else if(MODO_HIERARQUIA && hierVendasComFinanceiro().some(v => v.responsavel !== currentUser?.nome)) {
+      // quem vendeu na MINHA matrícula (consultores em prévia): posso filtrar por eles
       comisFilter.style.display = 'inline-block';
-      // Com equipe grande, a tabela da equipe inteira é pesada: abre nas comissões da própria pessoa e deixa a equipe como opção.
       const euNome = currentUser?.nome || '';
-      const outros = equipeVisivelAtiva().filter(u => u.id !== currentUser.id);
-      const assinatura = euNome + '|' + outros.length;
+      const outros = [...new Set(hierVendasComFinanceiro().map(v => v.responsavel).filter(n => n && n !== euNome))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      const assinatura = euNome + '|' + outros.join('|');
       if (comisFilter.dataset.hierAssinatura !== assinatura) {
-        comisFilter.innerHTML = `<option value="${esc(euNome)}">Minhas comissões</option><option value="all">Minha equipe consolidada (${outros.length + 1} pessoas)</option>` +
-          outros.map(u=>`<option value="${esc(u.nome)}">${esc(u.nome)}</option>`).join('');
-        comisFilter.dataset.hierAssinatura = assinatura;
+        const antes = comisFilter.dataset.hierDono === euNome ? comisFilter.value : 'all';   // outra pessoa entrou neste aparelho: começa em "tudo"
+        comisFilter.innerHTML = `<option value="all">Tudo: minha matrícula e minhas vendas</option><option value="${esc(euNome)}">Só as que eu vendi</option>` +
+          outros.map(n => `<option value="${esc(n)}">Na minha matrícula · ${esc(n)}</option>`).join('');
+        comisFilter.value = [...comisFilter.options].some(o => o.value === antes) ? antes : 'all';
+        comisFilter.dataset.hierAssinatura = assinatura; comisFilter.dataset.hierDono = euNome;
       }
     } else {
       comisFilter.innerHTML = `<option value="${esc(currentUser?.nome)}">${esc(currentUser?.nome)} (Minhas Comissões)</option>`;
@@ -7077,7 +7206,7 @@ function renderComissoes(){
   const subNames = getSubordinateUserNames(currentUser?.id);
 
   let salesList = db.sales || [];
-  if(!canSeeTeam) salesList = salesList.filter(s => MODO_HIERARQUIA ? canUserAccessSale(s) : (subNames.includes(s.responsavel) || s.responsavel === currentUser?.nome));
+  if(!canSeeTeam) salesList = salesList.filter(s => MODO_HIERARQUIA ? hierVeFinanceiro(s) : (subNames.includes(s.responsavel) || s.responsavel === currentUser?.nome));
   if(filterU !== 'all') salesList = salesList.filter(s => s.responsavel === filterU);
   if(filterSeg !== 'all') salesList = salesList.filter(s => (s.segmento || 'Imóvel') === filterSeg);
 
@@ -7310,7 +7439,7 @@ const startCol = 1, endCol = TOTAL_PARCELAS_COMISSAO;
         <small class="muted">${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '-'}</small>
       </td>
       <td class="col-fixed" style="left:110px">
-        <b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="abrirCadastroClientePorLead('${s.leadId||''}')">${esc(s.lead)}</b><br>
+        <b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="abrirCadastroClientePorLead('${s.leadId||''}')">${esc(s.lead)}</b>${hierSeloMatricula(s)}<br>
         <small class="muted"><span style="cursor:pointer;text-decoration:underline dotted" title="Editar esta cota" onclick="abrirEdicaoCotaPorVenda('${s.id}')">Grp ${esc(s.grupo)} | Cota ${esc(s.cota)} ${s.contemplada?'[⭐]':''}</span> ${s.responsavel!==currentUser?.nome?`<span style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do vendedor" onclick="abrirCadastroVendedor('${esc(s.responsavel)}')">(${esc(s.responsavel)})</span>`:''}</small>
       </td>
       <td>
@@ -7339,6 +7468,7 @@ const startCol = 1, endCol = TOTAL_PARCELAS_COMISSAO;
 }
 
 function transferirVenda(saleId, novoNome){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = (db.sales || []).find(x => x.id === saleId);
   if(!s || !novoNome) { renderComissoes(); return; }
   if(novoNome === s.responsavel) return;
@@ -7366,6 +7496,7 @@ function syncComissaoTabs(){
 }
 
 function updateInstallmentValue(saleId, month, valStr){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = db.sales.find(x => x.id === saleId);
   if(!s) return;
   if(!s.customInstallments) s.customInstallments = {};
@@ -7396,6 +7527,7 @@ function definirMesParcela(sale, parcela, ym){
 }
 
 function updateInstallmentDate(saleId, month, ymStr){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = db.sales.find(x => x.id === saleId);
   if(!s) return;
   month = Number(month);
@@ -7464,11 +7596,13 @@ function cancelarMudancaParcela(){
 }
 
 function updateSaleCredit(saleId, newCredit){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = db.sales.find(x => x.id === saleId);
   if(s){ s.valor = parseFloat(newCredit) || 0; save(); syncComissaoTabs(); }
 }
 
 function updateSaleModalidade(saleId, newMod){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = db.sales.find(x => x.id === saleId);
   if(s){ s.modalidadeParcela = newMod; save(); syncComissaoTabs(); }
 }
@@ -7479,6 +7613,7 @@ function updateSaleContractMonths(saleId, newMonths){
 }
 
 function toggleMonthPaid(saleId, month, isPaid){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = db.sales.find(x => x.id === saleId);
   if(s){
     if(!s.paidMonths) s.paidMonths = {};
@@ -7676,7 +7811,7 @@ function getAcoesMesSelecionado(desejaPago){
   const subNames = getSubordinateUserNames(currentUser?.id);
 
   let salesList = db.sales || [];
-  if(!canSeeTeam) salesList = salesList.filter(s => MODO_HIERARQUIA ? canUserAccessSale(s) : (subNames.includes(s.responsavel) || s.responsavel === currentUser?.nome));
+  if(!canSeeTeam) salesList = salesList.filter(s => MODO_HIERARQUIA ? hierVeFinanceiro(s) : (subNames.includes(s.responsavel) || s.responsavel === currentUser?.nome));
   if(filterU !== 'all') salesList = salesList.filter(s => s.responsavel === filterU);
   if(filterSeg !== 'all') salesList = salesList.filter(s => (s.segmento || 'Imóvel') === filterSeg);
 
@@ -8276,7 +8411,7 @@ function renderUsers(){
     }
     return `
       <tr${inativo ? ' style="opacity:.55"' : ''}>
-        <td>${hierFoto(u, 26)}<b>${esc(u.nome)}</b>${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
+        <td>${hierFoto(u, 26)}<b>${esc(u.nome)}</b>${hierAutorizado(u) ? '' : ' <span class="badge b-gold" title="As vendas saem na matrícula de um autorizado acima">Em prévia</span>'}${u.id === currentUser.id ? ' <span class="tc-sub">(você)</span>' : ''}${inativo ? ' <span class="tc-sub">(desativado)</span>' : ''}</td>
         <td>${acoes}</td>
         <td class="tc-vinc">${hierResumoVinculos(u)}</td>
         <td data-rot="Liderados:">${subordinates.length || '<span class="tc-sub">-</span>'}</td>
@@ -8579,7 +8714,9 @@ function openNewUserModal(){
     <div class="field"><label>Data de Nascimento</label><input type="date" id="nuNasc"></div>
     <div class="field"><label>Cargo / Função</label>
       <select id="nuCargo">${ROLES.filter(r => hierNivel(r) > hierMelhorNivel(currentUser)).map(r=>`<option value="${r}" ${r==='Consultor'?'selected':''}>${r}</option>`).join('')}</select>
+      <small class="muted" style="display:block;margin-top:4px"><b>Consultor</b> = em prévia: as vendas saem na matrícula de um autorizado acima. <b>Consultor autorizado</b> (ou cargo de liderança) = matrícula própria.</small>
     </div>
+    <div class="field"><label>Nº da matrícula (se já tiver)</label><input id="nuMatricula" value="" placeholder="Opcional"></div>
     <div class="field"><label>👑 Líder direto</label>
       <select id="nuSuperior">
         ${equipeVisivelAtiva().filter(u => hierLideraAlgo(u)).map(u=>`<option value="${u.id}" ${u.id===currentUser.id?'selected':''}>${esc(u.nome)} (${esc(hierCargosTexto(u))})</option>`).join('')}
@@ -8621,6 +8758,7 @@ function saveNewUser(){
   usersList.push({
     id: 'u_' + Date.now(),
     authId: null, nome, email, pass, cargo, superiorId, nasc,
+    matricula: (document.getElementById('nuMatricula')?.value || '').trim(),
     loja: document.getElementById('nuLoja')?.value || '',
     tel: tel.replace(/\D/g, ''),
     avatar: '',
@@ -10995,6 +11133,7 @@ function abrirCadastroVendedor(nomeVendedor){
   }, 150);
 }
 function abrirEdicaoCotaPorVenda(saleId){
+  if (!hierPodeMexerVenda(saleId)) return;
   const s = (db.sales || []).find(x => x.id === saleId);
   if(!s) return;
   if(s.leadId && s.leadId !== 'venda_direta' && db.leads.some(l => l.id === s.leadId)){
@@ -14009,10 +14148,8 @@ function injetarAbaConsultores() {
       </div>
 
       <div class="card" style="margin-bottom:16px;overflow-x:auto">
-        <h3 style="margin:0 0 8px">📋 Planilha de Vendas & Comissão do Consultor</h3>
-        <p class="muted" style="font-size:12px;margin-top:0">
-          💡 Edite Crédito, Modalidade, Data e Valor de cada parcela diretamente na tabela — igual a uma planilha do Excel.
-        </p>
+        <h3 style="margin:0 0 8px" id="vcTituloPlanilha">📋 Planilha de Vendas & Comissão do Consultor</h3>
+        <p class="muted" style="font-size:12px;margin-top:0" id="vcDicaPlanilha">💡 Edite Crédito, Modalidade, Data e Valor de cada parcela diretamente na tabela — igual a uma planilha do Excel.</p>
         <div style="overflow-x:auto" id="vcExcelTableContainer">
           <table class="excel-table" id="vcExcelTable"></table>
         </div>
@@ -15223,6 +15360,7 @@ function salvarVendaConsultor() {
 }
 
 function excluirVendaConsultor(saleId) {
+  if (!hierPodeMexerVenda(saleId)) return;
   if (confirm('Excluir esta venda? Isso também remove a projeção de comissão dela.')) {
     registrarHistoricoPrincipal();
     db.sales = db.sales.filter(x => x.id !== saleId);
@@ -15259,6 +15397,15 @@ function renderVendasConsultores() {
       </div>`;
   }
 
+  // vendas em outra matrícula: quem está acima vê só data, cliente, grupo, cota e valor
+  if (MODO_HIERARQUIA && lista.length && !lista.some(hierVeFinanceiro)) {
+    table.innerHTML = hierResumoVendasHtml(lista);
+    const totR = document.getElementById('vcTotalVolume');
+    if (totR) totR.textContent = hierMoeda(lista.filter(v => !v.cancelada).reduce((a, v) => a + Number(v.valor || 0), 0));
+    hierModoResumoVc(true);
+    return;
+  }
+  if (MODO_HIERARQUIA) hierModoResumoVc(false);
   let totalVol = 0;
   let totalComissaoGeral = 0;
   const taxaImposto = getTaxaImposto();
@@ -15278,6 +15425,15 @@ function renderVendasConsultores() {
   let rowsHtml = '';
   lista.forEach(s => {
     totalVol += Number(s.valor || 0);
+    if (MODO_HIERARQUIA && !hierVeFinanceiro(s)) {   // venda em outra matrícula no meio das minhas: linha só com o resumo
+      rowsHtml += `<tr>
+        <td class="col-fixed"><small class="muted">${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '-'}</small><br><b>${esc(s.lead)}</b> ${s.cancelada?'<span class="badge b-cancelada">Cancelada</span>':''}</td>
+        <td>${esc(s.grupo||'-')}</td><td>${esc(s.cota||'-')}</td>
+        <td style="font-weight:700;color:${s.cancelada?'var(--muted)':'var(--green)'}">${hierMoeda(s.valor)}</td>
+        <td colspan="${3 + TOTAL_PARCELAS_COMISSAO + 1}" class="muted" style="text-align:left;font-size:12px">🔒 Matrícula de ${esc(hierMatriculaNome(s))} — os recebimentos aparecem só para quem vendeu e para o dono da matrícula.</td>
+      </tr>`;
+      return;
+    }
     const sched = generateCommissionSchedule(s);
     const saleTotalComis = sched.reduce((acc, cur) => acc + cur.value, 0);
     totalComissaoGeral += saleTotalComis;
@@ -15314,7 +15470,7 @@ function renderVendasConsultores() {
     rowsHtml += `<tr>
       <td class="col-fixed">
         <small class="muted">${s.date ? new Date(s.date).toLocaleDateString('pt-BR') : '-'}</small><br>
-        <b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="abrirCadastroClientePorLead('${s.leadId||''}')">${esc(s.lead)}</b> ${s.cancelada?'<span class="badge b-cancelada">Cancelada</span>':''}
+        <b style="cursor:pointer;text-decoration:underline dotted" title="Abrir cadastro do cliente" onclick="abrirCadastroClientePorLead('${s.leadId||''}')">${esc(s.lead)}</b> ${s.cancelada?'<span class="badge b-cancelada">Cancelada</span>':''}${hierSeloMatricula(s)}
         ${s.seguroPrestamista?'<span class="badge b-blue" title="Vendida com seguro prestamista">🛡️ Seguro</span>':''}
       </td>
       <td style="cursor:pointer;text-decoration:underline dotted" title="Editar esta cota" onclick="abrirEdicaoCotaPorVenda('${s.id}')">${esc(s.grupo||'-')}</td>
@@ -15388,6 +15544,10 @@ function exportarVendasConsultorParaExcel() {
   let lista = hierVendasVisiveis().filter(s => s.responsavel === consultorSel);
   if (segFiltro !== 'all') lista = lista.filter(s => (s.segmento || 'Imóvel') === segFiltro);
   lista.sort((a,b) => new Date(a.date || 0) - new Date(b.date || 0));
+  if (MODO_HIERARQUIA && lista.length) {
+    if (!lista.some(hierVeFinanceiro)) return hierExportarResumoVendas(lista, consultorSel);
+    lista = lista.filter(hierVeFinanceiro);
+  }
 
   const taxaImposto = getTaxaImposto();
 
